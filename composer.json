@@ -1,0 +1,16 @@
+{
+    "name": "fanpoll-world/backend",
+    "description": "Fan Poll World PHP Backend",
+    "type": "project",
+    "require": {
+        "php": "^8.0",
+        "ext-pdo": "*",
+        "ext-pdo_pgsql": "*",
+        "ext-json": "*",
+        "ext-mbstring": "*"
+    },
+    "require-dev": {
+        "ext-pdo": "*",
+        "ext-pdo_pgsql": "*"
+    }
+}
