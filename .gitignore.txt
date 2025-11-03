@@ -1,0 +1,8 @@
+# CodeIgniter
+application/cache/*
+application/logs/*
+!application/cache/.gitkeep
+!application/logs/.gitkeep
+.env
+config/database.php
+*.log

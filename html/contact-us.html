@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Contact & Support – Fanpollworld</title>
+  <meta name="description" content="Contact Fanpollworld support. Get help, report issues or abusive content, and find answers to common questions." />
+  <style>
+    :root { --bg: #0b1020; --card: #11182d; --muted: #8ea1c0; --text: #eaf0ff; --accent: #5ea1ff; --border: #223152; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; color: var(--text); background: linear-gradient(180deg, #0b1020 0%, #0e1530 100%); }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 24px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+    header h1 { font-size: 1.6rem; margin: 0; }
+    header small { color: var(--muted); }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    .grid { display: grid; gap: 16px; }
+    @media (min-width: 900px){ .grid-cols-2 { grid-template-columns: 1fr 1fr; } }
+    a { color: var(--accent); }
+    h2 { font-size: 1.25rem; margin: 0 0 10px; }
+    p { line-height: 1.6; }
+    .label { display: block; font-weight: 600; margin: 12px 0 6px; }
+    input, select, textarea, button { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: #0d1327; color: var(--text); }
+    textarea { min-height: 120px; resize: vertical; }
+    .row { display: grid; gap: 12px; }
+    @media (min-width: 600px){ .row-2 { grid-template-columns: 1fr 1fr; } }
+    button { cursor: pointer; font-weight: 700; }
+    .btn { background: var(--accent); color: #06132b; border-color: transparent; }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .muted { color: var(--muted); font-size: .95rem; }
+    .notice { background: #0b2248; border-left: 4px solid var(--accent); padding: 12px 14px; border-radius: 10px; }
+    footer { margin: 28px 0 8px; color: var(--muted); font-size: .92rem; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background:#0c1b36; border:1px solid var(--border); padding: 2px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap" role="main">
+    <header aria-label="Support header">
+      <div>
+        <h1>Contact & Support</h1>
+        <small>We typically reply within 1–2 business days.</small>
+      </div>
+    </header>
+
+    <section class="grid grid-cols-2" aria-label="Support options">
+      <div class="card" aria-labelledby="direct-support">
+        <h2 id="direct-support">Direct support</h2>
+        <p class="muted">Choose one of the contact methods below. Email is the fastest way to reach us.</p>
+
+        <p>
+          <strong>Email:</strong>
+          <a href="mailto:fanpollhub@gmail.com?subject=Support%20Request%20%7C%20Fanpollworld" rel="noopener">fanpollhub@gmail.com</a>
+        </p>
+        <p>
+          <strong>Report abuse or objectionable content:</strong>
+          <a href="mailto:fanpollhub@gmail.com?subject=Abuse%20Report%20%7C%20Fanpollworld&body=Please%20include%20screenshots%20or%20URLs%20and%20details%20below." rel="noopener">Send an abuse report</a>
+        </p>
+        <p>
+          <strong>Support hours:</strong> Monday–Friday, 9:00–18:00 (local time)
+        </p>
+        <div class="notice" role="note">
+          We have a <strong>zero‑tolerance policy</strong> for objectionable content and abusive behavior. Reports are reviewed promptly and may result in content removal or account suspension.
+        </div>
+
+      </div>
+
+      <div class="card" aria-labelledby="form-contact">
+        <h2 id="form-contact">Contact form</h2>
+        <form id="support-form" novalidate>
+          <label class="label" for="name">Your name</label>
+          <input id="name" name="name" type="text" autocomplete="name" required aria-required="true" />
+
+          <div class="row row-2">
+            <div>
+              <label class="label" for="email">Email</label>
+              <input id="email" name="email" type="email" inputmode="email" autocomplete="email" required aria-required="true" />
+            </div>
+            <div>
+              <label class="label" for="topic">Topic</label>
+              <select id="topic" name="topic" required aria-required="true">
+                <option value="" selected disabled>Select a topic…</option>
+                <option>Account & Login</option>
+                <option>Billing</option>
+                <option>Bug Report</option>
+                <option>Feature Request</option>
+                <option>Abuse / Safety</option>
+                <option>Other</option>
+              </select>
+            </div>
+          </div>
+
+          <label class="label" for="message">How can we help?</label>
+          <textarea id="message" name="message" required aria-required="true" placeholder="Please include steps to reproduce any issues."></textarea>
+
+          <div class="row row-2" style="
+    margin-bottom: 15px;
+">
+            <div>
+              <label class="label" for="app-version">App version</label>
+              <input id="app-version" name="app_version" type="text" placeholder="e.g., 1.0.0" />
+            </div>
+            <div>
+              <label class="label" for="device-info">Device & iOS</label>
+              <input id="device-info" name="device" type="text" placeholder="e.g., iPhone 14, iOS 17" />
+            </div>
+          </div>
+
+          <!-- Honeypot to reduce spam -->
+          <input type="text" id="website" name="website" autocomplete="off" style="position:absolute;left:-9999px;opacity:0" tabindex="-1" aria-hidden="true" />
+
+          <button class="btn" type="submit" id="submitBtn">Send message</button>
+          <p id="form-status" class="muted" role="status" aria-live="polite" style="margin-top:10px"></p>
+        </form>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:16px" aria-labelledby="data-notice">
+      <h2 id="data-notice">Data & privacy notice</h2>
+      <p class="muted">We use your contact details solely to respond to your inquiry and to improve support quality. For more information, see our <a href="https://fanpollworld.com/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a>.</p>
+    </section>
+
+    <footer>
+      <div>© <span id="year"></span> Fanpollworld • <a href="https://fanpollworld.com" target="_blank" rel="noopener">fanpollworld.com</a></div>
+    </footer>
+  </div>
+
+  <script>
+    const yearEl = document.getElementById('year');
+    yearEl.textContent = new Date().getFullYear();
+
+    // Lightweight client-side validation + mailto fallback
+    const form = document.getElementById('support-form');
+    const statusEl = document.getElementById('form-status');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+
+      // Simple validation
+      const required = ['name','email','topic','message'];
+      for (const id of required){
+        const el = document.getElementById(id);
+        if (!el || !el.value || (el.tagName === 'SELECT' && !el.value)){
+          statusEl.textContent = 'Please fill in all required fields.';
+          return;
+        }
+      }
+      // Honeypot check
+      if (document.getElementById('website').value) { return; }
+
+      submitBtn.disabled = true;
+      statusEl.textContent = 'Opening your email client…';
+
+      // Build a mailto: link so the page works without a backend.
+      const name = encodeURIComponent(document.getElementById('name').value.trim());
+      const email = encodeURIComponent(document.getElementById('email').value.trim());
+      const topic = encodeURIComponent(document.getElementById('topic').value);
+      const message = encodeURIComponent(document.getElementById('message').value.trim());
+      const version = encodeURIComponent(document.getElementById('app-version').value.trim());
+      const device = encodeURIComponent(document.getElementById('device-info').value.trim());
+
+      const subject = `[Support] ${decodeURIComponent(topic)} – ${decodeURIComponent(name)}`;
+      const body = `Name: ${decodeURIComponent(name)}%0D%0AEmail: ${decodeURIComponent(email)}%0D%0ATopic: ${decodeURIComponent(topic)}%0D%0AApp version: ${decodeURIComponent(version)}%0D%0ADevice/iOS: ${decodeURIComponent(device)}%0D%0A%0D%0ADescription:%0D%0A${decodeURIComponent(message)}`;
+
+      const mailto = `mailto:fanpollhub@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.location.href = mailto;
+      setTimeout(()=>{ submitBtn.disabled = false; statusEl.textContent = 'If your email app did not open, please email us at fanpollhub@gmail.com.'; }, 1200);
+    });
+  </script>
+</body>
+</html>
