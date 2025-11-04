@@ -23,4 +23,10 @@ $config['allowed_origins_removed'] = array(
     'https://fpw-web.zbit.ltd/',
 );
 
-$config['allowed_origins'] = [];
+$config['allowed_origins'] = [
+       'https://fanpoll-flutter-6z77.vercel.app',
+    'https://fanpoll-flutter.vercel.app',
+    'http://localhost:8000',
+    'http://localhost:53589',
+    'http://127.0.0.1:8000'
+];
