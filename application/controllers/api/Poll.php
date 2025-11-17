@@ -706,7 +706,7 @@ private function format_poll_response($poll, $user_id, $show_results = false)
     log_message('debug', 'Poll::format_poll_response - Poll expired: ' . ($is_expired ? 'yes' : 'no'));
 
     // FIX: Use HTTPS URLs instead of base_url() to avoid CORS issues
-    $base_domain = 'https://fanpoll-backend-production.up.railway.app';
+    $base_domain = 'https://fanpoll-backend-production.up.railway.app/serve_image.php?file=';
     
     // Handle image URL - ensure it's HTTPS and has proper extension
     $image_url = null;
@@ -714,7 +714,7 @@ private function format_poll_response($poll, $user_id, $show_results = false)
         $image_path = $poll['image_path'];
         // Remove any trailing dots that might cause issues
         $image_path = rtrim($image_path, '.');
-        $image_url = $base_domain . '/uploads/poll_images/' . $image_path;
+        $image_url = $base_domain . $image_path;
         log_message('debug', 'Poll::format_poll_response - Image URL: ' . $image_url);
     }
 
