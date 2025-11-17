@@ -7,23 +7,36 @@ class Poll extends CI_Controller
     private $tokenHandler;
 
     function __construct()
-    {
-        log_message('debug', 'Poll::__construct - Constructor called');
-        parent::__construct();
-        $this->load->model('Common_model', 'common');
-        $this->tokenHandler = new TokenHandler();
+{
+    log_message('debug', 'Poll::__construct - Constructor called');
+    parent::__construct();
+    $this->load->model('Common_model', 'common');
+    $this->tokenHandler = new TokenHandler();
 
-        $allowed_origins = config_item('allowed_origins');
+    $allowed_origins = config_item('allowed_origins');
+    
+    // Add local development origins
+    $allowed_origins[] = 'http://localhost:8000';
+    $allowed_origins[] = 'https://localhost:8000';
 
-        $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
-        if (in_array($origin, $allowed_origins)) {
-            header("Access-Control-Allow-Origin: " . $origin);
-            header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-            header("Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept, Authorization");
-            header("Access-Control-Allow-Credentials: true");
-        }
-        log_message('debug', 'Poll::__construct - Constructor completed');
+    $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+    
+    if (in_array($origin, $allowed_origins)) {
+        header("Access-Control-Allow-Origin: " . $origin);
+        header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+        header("Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept, Authorization");
+        header("Access-Control-Allow-Credentials: true");
+        header("Access-Control-Expose-Headers: Content-Length, Content-Range");
     }
+    
+    // Handle preflight requests
+    if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+        header("HTTP/1.1 200 OK");
+        exit();
+    }
+    
+    log_message('debug', 'Poll::__construct - Constructor completed');
+}
 
     public function output($data)
     {
