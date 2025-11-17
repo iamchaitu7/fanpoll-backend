@@ -8,25 +8,23 @@ $config['author_link']      = 'https://zoobitinfotech.com/?utm_source=fan_poll_w
 
 $config['img_extensions'] = array("jpeg", "jpg", "png", "svg", "webp");
 
-
 $config['email_username'] = 'chandunaidu630@gmail.com';
 $config['email_password'] = '*****';
 $config['email_host'] = 'smtp.gmail.com';
 $config['email_port'] = 465;
 
-
-$config['allowed_origins_removed'] = array(
-    'http://localhost:4200',
-    'http://localhost:4200/',
-
-    'https://fpw-web.zbit.ltd',
-    'https://fpw-web.zbit.ltd/',
-);
-
+// CORS Configuration
 $config['allowed_origins'] = [
-       'https://fanpoll-flutter-6z77.vercel.app',
+    'https://fanpoll-flutter-6z77.vercel.app',
     'https://fanpoll-flutter.vercel.app',
     'http://localhost:8000',
     'http://localhost:53589',
+    'http://localhost:63775', // Your current port
     'http://127.0.0.1:8000'
 ];
+
+// Enable dynamic localhost port allowance for development
+$config['cors_allow_dynamic_localhost'] = true;
+
+// Remove old configuration to avoid conflicts
+// $config['allowed_origins_removed'] = array();
