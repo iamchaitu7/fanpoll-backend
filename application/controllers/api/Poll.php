@@ -8,6 +8,7 @@ class Poll extends CI_Controller
 
     function __construct()
     {
+        log_message('debug', 'Poll::__construct - Constructor called');
         parent::__construct();
         $this->load->model('Common_model', 'common');
         $this->tokenHandler = new TokenHandler();
@@ -21,12 +22,15 @@ class Poll extends CI_Controller
             header("Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept, Authorization");
             header("Access-Control-Allow-Credentials: true");
         }
+        log_message('debug', 'Poll::__construct - Constructor completed');
     }
 
     public function output($data)
     {
+        log_message('debug', 'Poll::output - Outputting JSON data');
         header("Content-Type: application/json; charset=UTF-8");
         echo json_encode($data);
+        log_message('debug', 'Poll::output - JSON data output completed');
     }
 
     /**
@@ -34,23 +38,29 @@ class Poll extends CI_Controller
      */
     private function get_authenticated_user()
     {
+        log_message('debug', 'Poll::get_authenticated_user - Getting authenticated user from token');
         $headers = $this->input->request_headers();
 
         if (empty($headers['Authorization'])) {
+            log_message('debug', 'Poll::get_authenticated_user - No Authorization header found');
             return false;
         }
 
         $token = str_replace('Bearer ', '', $headers['Authorization']);
+        log_message('debug', 'Poll::get_authenticated_user - Token extracted: ' . substr($token, 0, 10) . '...');
 
         try {
             $decoded = $this->tokenHandler->decodeToken($token);
             if (isset($decoded->user_id)) {
+                log_message('debug', 'Poll::get_authenticated_user - User authenticated: ' . $decoded->user_id);
                 return $decoded->user_id;
             }
         } catch (Exception $e) {
+            log_message('error', 'Poll::get_authenticated_user - Token decoding failed: ' . $e->getMessage());
             return false;
         }
 
+        log_message('debug', 'Poll::get_authenticated_user - Token validation failed');
         return false;
     }
 
@@ -59,6 +69,7 @@ class Poll extends CI_Controller
      */
     private function create_pagination_response($data, $page, $limit, $total_count)
     {
+        log_message('debug', 'Poll::create_pagination_response - Creating pagination response');
         $total_pages = ceil($total_count / $limit);
 
         return [
@@ -81,47 +92,58 @@ class Poll extends CI_Controller
      */
     public function create()
     {
+        log_message('debug', 'Poll::create - Starting poll creation');
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
+            log_message('debug', 'Poll::create - Unauthorized access attempt');
             $this->output(['status' => 401, 'message' => 'Unauthorized']);
             return;
         }
 
+        log_message('debug', 'Poll::create - User authenticated: ' . $current_user_id);
         $post_data = $this->input->post(null, true);
 
         // Validate required fields
         if (empty($post_data['title'])) {
+            log_message('debug', 'Poll::create - Validation failed: Poll title is required');
             $this->output(['status' => 400, 'message' => 'Poll title is required']);
             return;
         }
 
         if (empty($post_data['options']) || !is_array($post_data['options']) || count($post_data['options']) < 2) {
+            log_message('debug', 'Poll::create - Validation failed: At least 2 poll options are required');
             $this->output(['status' => 400, 'message' => 'At least 2 poll options are required']);
             return;
         }
 
         if (empty($post_data['expires_in_days']) || $post_data['expires_in_days'] < 1 || $post_data['expires_in_days'] > 7) {
+            log_message('debug', 'Poll::create - Validation failed: Invalid expiry days');
             $this->output(['status' => 400, 'message' => 'Expiry must be between 1-7 days']);
             return;
         }
 
+        log_message('debug', 'Poll::create - Basic validation passed');
+
         // Handle image upload if provided
         $image_path = null;
-        $image_url = null; // NEW: Variable for full image URL
+        $image_url = null;
         
         if (!empty($_FILES['image']['name'])) {
+            log_message('debug', 'Poll::create - Image upload detected');
             $upload_path = './uploads/poll_images/';
             $file = $_FILES['image'];
 
             // Validate file
             if ($file['error'] !== UPLOAD_ERR_OK) {
+                log_message('debug', 'Poll::create - Upload error: ' . $file['error']);
                 $this->output(['status' => 400, 'message' => 'Upload error occurred.']);
                 return;
             }
 
             // Check file size (5MB = 5242880 bytes)
             if ($file['size'] > 5242880) {
+                log_message('debug', 'Poll::create - File too large: ' . $file['size'] . ' bytes');
                 $this->output(['status' => 400, 'message' => 'File too large. Maximum size is 5MB.']);
                 return;
             }
@@ -131,6 +153,7 @@ class Poll extends CI_Controller
             $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
 
             if (!in_array($file_ext, $allowed_extensions)) {
+                log_message('debug', 'Poll::create - Invalid file extension: ' . $file_ext);
                 $this->output(['status' => 400, 'message' => 'Invalid file type.']);
                 return;
             }
@@ -138,6 +161,7 @@ class Poll extends CI_Controller
             // Validate that it's actually an image
             $image_info = getimagesize($file['tmp_name']);
             if (!$image_info) {
+                log_message('debug', 'Poll::create - File is not a valid image');
                 $this->output(['status' => 400, 'message' => 'File is not a valid image.']);
                 return;
             }
@@ -148,6 +172,7 @@ class Poll extends CI_Controller
 
             // Create directory if it doesn't exist
             if (!is_dir($upload_path)) {
+                log_message('debug', 'Poll::create - Creating upload directory: ' . $upload_path);
                 mkdir($upload_path, 0755, true);
             }
 
@@ -155,26 +180,30 @@ class Poll extends CI_Controller
             if (move_uploaded_file($file['tmp_name'], $destination)) {
                 $image_path = $new_filename;
                 
-                // NEW: Generate full URL for response
+                // Generate full URL for response
                 $base_url = 'https://fanpoll-backend-production.up.railway.app';
                 $image_url = $base_url . '/uploads/poll_images/' . $new_filename;
+                log_message('debug', 'Poll::create - Image uploaded successfully: ' . $new_filename);
             } else {
+                log_message('debug', 'Poll::create - Failed to move uploaded file');
                 $this->output(['status' => 400, 'message' => 'Failed to save uploaded file.']);
                 return;
             }
+        } else {
+            log_message('debug', 'Poll::create - No image uploaded');
         }
 
         // Calculate expiry date
         $expires_at = date('Y-m-d H:i:s', strtotime('+' . $post_data['expires_in_days'] . ' days'));
+        log_message('debug', 'Poll::create - Expiry date calculated: ' . $expires_at);
 
         // Process hashtags to remove duplicates
         $hashtags = null;
         if (!empty($post_data['hashtags'])) {
-            // Split by comma, trim whitespace, remove empty values, and get unique values
             $hashtags_array = array_filter(array_map('trim', explode(',', $post_data['hashtags'])));
             $unique_hashtags = array_unique($hashtags_array, SORT_STRING);
-            // Convert back to comma-separated string
             $hashtags = implode(',', $unique_hashtags);
+            log_message('debug', 'Poll::create - Hashtags processed: ' . $hashtags);
         }
 
         // Create poll
@@ -183,20 +212,25 @@ class Poll extends CI_Controller
             'title' => $post_data['title'],
             'description' => !empty($post_data['description']) ? $post_data['description'] : null,
             'url' => !empty($post_data['url']) ? $post_data['url'] : null,
-            'image_path' => $image_path, // Store filename in database
+            'image_path' => $image_path,
             'hashtags' => $hashtags,
             'expires_at' => $expires_at,
             'status' => 'active'
         );
 
+        log_message('debug', 'Poll::create - Inserting poll data into database');
         $poll_id = $this->common->insert($poll_data, 'polls');
 
         if (!$poll_id) {
+            log_message('error', 'Poll::create - Failed to create poll in database');
             $this->output(['status' => 500, 'message' => 'Failed to create poll']);
             return;
         }
 
+        log_message('debug', 'Poll::create - Poll created with ID: ' . $poll_id);
+
         // Create poll options
+        log_message('debug', 'Poll::create - Creating poll options');
         foreach ($post_data['options'] as $index => $option_text) {
             if (!empty(trim($option_text))) {
                 $option_data = array(
@@ -205,15 +239,16 @@ class Poll extends CI_Controller
                     'option_order' => $index + 1
                 );
                 $this->common->insert($option_data, 'poll_options');
+                log_message('debug', 'Poll::create - Option created: ' . trim($option_text));
             }
         }
 
-        // NEW: Return full image URL in response
+        log_message('debug', 'Poll::create - Poll creation completed successfully');
         $this->output([
             'status' => 200, 
             'message' => 'Poll created successfully', 
             'poll_id' => $poll_id,
-            'image_url' => $image_url // NEW: Include full image URL
+            'image_url' => $image_url
         ]);
     }
 
@@ -221,38 +256,50 @@ class Poll extends CI_Controller
      * Validate token and get user ID (your existing method)
      */
     private function validate_token_and_get_user($token) {
+        log_message('debug', 'Poll::validate_token_and_get_user - Validating token');
         // Your existing token validation logic
         // Return user ID if valid, false if invalid
         $user = $this->common->get_where('users', ['auth_token' => $token]);
-        return $user ? $user['id'] : false;
+        $result = $user ? $user['id'] : false;
+        log_message('debug', 'Poll::validate_token_and_get_user - Token validation result: ' . ($result ? 'valid' : 'invalid'));
+        return $result;
     }
 
-  
     /**
      * Get active polls
      * GET /poll/active_polls
      */
     public function active_polls()
     {
+        log_message('debug', 'Poll::active_polls - Getting active polls');
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
+            log_message('debug', 'Poll::active_polls - Unauthorized access attempt');
             $this->output(['status' => 401, 'message' => 'Unauthorized']);
             return;
         }
 
+        log_message('debug', 'Poll::active_polls - User authenticated: ' . $current_user_id);
+
         // Get pagination parameters
         $page = $this->input->get('page') ? (int)$this->input->get('page') : 1;
         $limit = 10;
+        log_message('debug', 'Poll::active_polls - Pagination - Page: ' . $page . ', Limit: ' . $limit);
 
         // Get search parameters
         $search = $this->input->get('search');
         $hashtag = $this->input->get('hashtag');
+        log_message('debug', 'Poll::active_polls - Search params - Search: ' . $search . ', Hashtag: ' . $hashtag);
 
         // Get total count for pagination
+        log_message('debug', 'Poll::active_polls - Getting total count');
         $total_count = $this->common->get_active_polls_count($search, $hashtag);
+        log_message('debug', 'Poll::active_polls - Total count: ' . $total_count);
 
+        log_message('debug', 'Poll::active_polls - Fetching active polls from database');
         $polls = $this->common->get_active_polls($page, $limit, $search, $hashtag, $current_user_id);
+        log_message('debug', 'Poll::active_polls - Retrieved ' . count($polls) . ' polls');
 
         // Format polls with options and user vote status
         $formatted_polls = array();
@@ -261,6 +308,7 @@ class Poll extends CI_Controller
             $formatted_polls[] = $formatted_poll;
         }
 
+        log_message('debug', 'Poll::active_polls - Formatting completed');
         $response = $this->create_pagination_response($formatted_polls, $page, $limit, $total_count);
         $this->output($response);
     }
@@ -271,21 +319,30 @@ class Poll extends CI_Controller
      */
     public function completed_polls()
     {
+        log_message('debug', 'Poll::completed_polls - Getting completed polls');
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
+            log_message('debug', 'Poll::completed_polls - Unauthorized access attempt');
             $this->output(['status' => 401, 'message' => 'Unauthorized']);
             return;
         }
 
+        log_message('debug', 'Poll::completed_polls - User authenticated: ' . $current_user_id);
+
         // Get pagination parameters
         $page = $this->input->get('page') ? (int)$this->input->get('page') : 1;
         $limit = 10;
+        log_message('debug', 'Poll::completed_polls - Pagination - Page: ' . $page . ', Limit: ' . $limit);
 
         // Get total count for pagination
+        log_message('debug', 'Poll::completed_polls - Getting total count');
         $total_count = $this->common->get_completed_polls_count();
+        log_message('debug', 'Poll::completed_polls - Total count: ' . $total_count);
 
+        log_message('debug', 'Poll::completed_polls - Fetching completed polls from database');
         $polls = $this->common->get_completed_polls($page, $limit, $current_user_id);
+        log_message('debug', 'Poll::completed_polls - Retrieved ' . count($polls) . ' polls');
 
         // Format polls with results
         $formatted_polls = array();
@@ -294,6 +351,7 @@ class Poll extends CI_Controller
             $formatted_polls[] = $formatted_poll;
         }
 
+        log_message('debug', 'Poll::completed_polls - Formatting completed');
         $response = $this->create_pagination_response($formatted_polls, $page, $limit, $total_count);
         $this->output($response);
     }
@@ -304,30 +362,41 @@ class Poll extends CI_Controller
      */
     public function view($poll_id)
     {
+        log_message('debug', 'Poll::view - Viewing poll: ' . $poll_id);
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
+            log_message('debug', 'Poll::view - Unauthorized access attempt');
             $this->output(['status' => 401, 'message' => 'Unauthorized']);
             return;
         }
 
+        log_message('debug', 'Poll::view - User authenticated: ' . $current_user_id);
+
         if (!$poll_id) {
+            log_message('debug', 'Poll::view - Poll ID is required');
             $this->output(['status' => 400, 'message' => 'Poll ID is required']);
             return;
         }
 
         // Get poll data
+        log_message('debug', 'Poll::view - Fetching poll data from database');
         $poll = $this->common->get_poll_by_id($poll_id);
 
         if (!$poll) {
+            log_message('debug', 'Poll::view - Poll not found: ' . $poll_id);
             $this->output(['status' => 404, 'message' => 'Poll not found']);
             return;
         }
 
+        log_message('debug', 'Poll::view - Poll found: ' . $poll['title']);
+
         // Check if poll is expired
         $is_expired = strtotime($poll['expires_at']) <= time();
+        log_message('debug', 'Poll::view - Poll expired status: ' . ($is_expired ? 'yes' : 'no'));
 
         $formatted_poll = $this->format_poll_response($poll, $current_user_id, $is_expired);
+        log_message('debug', 'Poll::view - Poll formatted successfully');
 
         $this->output(['status' => 200, 'data' => $formatted_poll]);
     }
@@ -338,54 +407,67 @@ class Poll extends CI_Controller
      */
     public function vote()
     {
+        log_message('debug', 'Poll::vote - Processing vote');
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
+            log_message('debug', 'Poll::vote - Unauthorized access attempt');
             $this->output(['status' => 401, 'message' => 'Unauthorized']);
             return;
         }
 
+        log_message('debug', 'Poll::vote - User authenticated: ' . $current_user_id);
         $post_data = $this->input->post(null, true);
 
         if (empty($post_data['poll_id']) || empty($post_data['option_id'])) {
+            log_message('debug', 'Poll::vote - Missing poll_id or option_id');
             $this->output(['status' => 400, 'message' => 'Poll ID and Option ID are required']);
             return;
         }
 
         $poll_id = $post_data['poll_id'];
         $option_id = $post_data['option_id'];
+        log_message('debug', 'Poll::vote - Vote request - Poll: ' . $poll_id . ', Option: ' . $option_id);
 
         // Check if poll exists and is active
+        log_message('debug', 'Poll::vote - Checking poll existence');
         $poll = $this->common->getdatabytable('polls', array('id' => $poll_id, 'status' => 'active'));
 
         if (!$poll) {
+            log_message('debug', 'Poll::vote - Poll not found: ' . $poll_id);
             $this->output(['status' => 404, 'message' => 'Poll not found']);
             return;
         }
 
         // Check if poll is expired
         if (strtotime($poll->expires_at) <= time()) {
+            log_message('debug', 'Poll::vote - Poll expired: ' . $poll_id);
             $this->output(['status' => 400, 'message' => 'Poll has expired']);
             return;
         }
 
         // Check if option exists
+        log_message('debug', 'Poll::vote - Checking option existence');
         $option = $this->common->getdatabytable('poll_options', array('id' => $option_id, 'poll_id' => $poll_id));
 
         if (!$option) {
+            log_message('debug', 'Poll::vote - Option not found: ' . $option_id);
             $this->output(['status' => 404, 'message' => 'Poll option not found']);
             return;
         }
 
         // Check if user has already voted
+        log_message('debug', 'Poll::vote - Checking existing vote');
         $existing_vote = $this->common->getdatabytable('poll_votes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
 
         if ($existing_vote) {
+            log_message('debug', 'Poll::vote - User already voted: ' . $current_user_id);
             $this->output(['status' => 400, 'message' => 'You have already voted on this poll']);
             return;
         }
 
         // Cast vote
+        log_message('debug', 'Poll::vote - Casting vote');
         $vote_data = array(
             'poll_id' => $poll_id,
             'option_id' => $option_id,
@@ -397,20 +479,26 @@ class Poll extends CI_Controller
         $result = $this->common->insert($vote_data, 'poll_votes');
 
         if ($result) {
+            log_message('debug', 'Poll::vote - Vote cast successfully');
+
             // Create notification for poll owner
+            log_message('debug', 'Poll::vote - Creating vote notification');
             $this->load->model('Notification_model', 'notification');
             $this->notification->create_vote_notification($poll_id, $current_user_id, $poll->user_id);
 
             // Get updated poll with results
+            log_message('debug', 'Poll::vote - Fetching updated poll data');
             $updated_poll = $this->common->get_poll_by_id($poll_id);
             $formatted_poll = $this->format_poll_response($updated_poll, $current_user_id, false);
 
+            log_message('debug', 'Poll::vote - Vote process completed successfully');
             $this->output([
                 'status' => 200,
                 'message' => 'Vote cast successfully',
                 'poll' => $formatted_poll
             ]);
         } else {
+            log_message('error', 'Poll::vote - Failed to cast vote');
             $this->output(['status' => 500, 'message' => 'Failed to cast vote']);
         }
     }
@@ -421,58 +509,74 @@ class Poll extends CI_Controller
      */
     public function undo_vote()
     {
+        log_message('debug', 'Poll::undo_vote - Processing vote undo');
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
+            log_message('debug', 'Poll::undo_vote - Unauthorized access attempt');
             $this->output(['status' => 401, 'message' => 'Unauthorized']);
             return;
         }
 
+        log_message('debug', 'Poll::undo_vote - User authenticated: ' . $current_user_id);
         $post_data = $this->input->post(null, true);
 
         if (empty($post_data['poll_id'])) {
+            log_message('debug', 'Poll::undo_vote - Missing poll_id');
             $this->output(['status' => 400, 'message' => 'Poll ID is required']);
             return;
         }
 
         $poll_id = $post_data['poll_id'];
+        log_message('debug', 'Poll::undo_vote - Undo vote request for poll: ' . $poll_id);
 
         // Check if poll exists and is active
+        log_message('debug', 'Poll::undo_vote - Checking poll existence');
         $poll = $this->common->getdatabytable('polls', array('id' => $poll_id, 'status' => 'active'));
 
         if (!$poll) {
+            log_message('debug', 'Poll::undo_vote - Poll not found: ' . $poll_id);
             $this->output(['status' => 404, 'message' => 'Poll not found']);
             return;
         }
 
         // Check if poll is expired
         if (strtotime($poll->expires_at) <= time()) {
+            log_message('debug', 'Poll::undo_vote - Poll expired: ' . $poll_id);
             $this->output(['status' => 400, 'message' => 'Cannot undo vote on expired poll']);
             return;
         }
 
         // Check if user has voted
+        log_message('debug', 'Poll::undo_vote - Checking existing vote');
         $existing_vote = $this->common->getdatabytable('poll_votes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
 
         if (!$existing_vote) {
+            log_message('debug', 'Poll::undo_vote - User has not voted: ' . $current_user_id);
             $this->output(['status' => 400, 'message' => 'You have not voted on this poll']);
             return;
         }
 
         // Delete vote
+        log_message('debug', 'Poll::undo_vote - Deleting vote');
         $result = $this->common->deleteWhere('poll_votes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
 
         if ($result) {
+            log_message('debug', 'Poll::undo_vote - Vote deleted successfully');
+
             // Get updated poll without user vote
+            log_message('debug', 'Poll::undo_vote - Fetching updated poll data');
             $updated_poll = $this->common->get_poll_by_id($poll_id);
             $formatted_poll = $this->format_poll_response($updated_poll, $current_user_id, false);
 
+            log_message('debug', 'Poll::undo_vote - Vote undo process completed successfully');
             $this->output([
                 'status' => 200,
                 'message' => 'Vote removed successfully',
                 'poll' => $formatted_poll
             ]);
         } else {
+            log_message('error', 'Poll::undo_vote - Failed to delete vote');
             $this->output(['status' => 500, 'message' => 'Failed to remove vote']);
         }
     }
@@ -483,31 +587,39 @@ class Poll extends CI_Controller
      */
     public function delete()
     {
+        log_message('debug', 'Poll::delete - Processing poll deletion');
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
+            log_message('debug', 'Poll::delete - Unauthorized access attempt');
             $this->output(['status' => 401, 'message' => 'Unauthorized']);
             return;
         }
 
+        log_message('debug', 'Poll::delete - User authenticated: ' . $current_user_id);
         $post_data = $this->input->post(null, true);
 
         if (empty($post_data['poll_id'])) {
+            log_message('debug', 'Poll::delete - Missing poll_id');
             $this->output(['status' => 400, 'message' => 'Poll ID is required']);
             return;
         }
 
         $poll_id = $post_data['poll_id'];
+        log_message('debug', 'Poll::delete - Delete request for poll: ' . $poll_id);
 
         // Check if poll exists and user is the creator
+        log_message('debug', 'Poll::delete - Checking poll ownership');
         $poll = $this->common->getdatabytable('polls', array('id' => $poll_id, 'user_id' => $current_user_id, 'status' => 'active'));
 
         if (!$poll) {
+            log_message('debug', 'Poll::delete - Poll not found or unauthorized: ' . $poll_id);
             $this->output(['status' => 404, 'message' => 'Poll not found or you are not authorized to delete it']);
             return;
         }
 
         // Soft delete poll
+        log_message('debug', 'Poll::delete - Soft deleting poll');
         $update_data = array(
             'status' => 'deleted',
             'deleted_at' => date('Y-m-d H:i:s')
@@ -516,8 +628,10 @@ class Poll extends CI_Controller
         $result = $this->common->update('polls', $update_data, array('id' => $poll_id));
 
         if ($result) {
+            log_message('debug', 'Poll::delete - Poll deleted successfully: ' . $poll_id);
             $this->output(['status' => 200, 'message' => 'Poll deleted successfully']);
         } else {
+            log_message('error', 'Poll::delete - Failed to delete poll: ' . $poll_id);
             $this->output(['status' => 500, 'message' => 'Failed to delete poll']);
         }
     }
@@ -527,25 +641,33 @@ class Poll extends CI_Controller
      */
     private function format_poll_response($poll, $user_id, $show_results = false)
     {
+        log_message('debug', 'Poll::format_poll_response - Formatting poll response for poll: ' . $poll['id']);
+        
         // Get poll options
+        log_message('debug', 'Poll::format_poll_response - Getting poll options');
         $options = $this->common->get_poll_options($poll['id']);
+        log_message('debug', 'Poll::format_poll_response - Retrieved ' . count($options) . ' options');
 
         // Check if user has voted
         $user_vote = null;
         if ($user_id) {
+            log_message('debug', 'Poll::format_poll_response - Checking user vote status');
             $vote = $this->common->getdatabytable('poll_votes', array('poll_id' => $poll['id'], 'user_id' => $user_id));
             $user_vote = $vote ? $vote->option_id : null;
+            log_message('debug', 'Poll::format_poll_response - User vote: ' . ($user_vote ? $user_vote : 'none'));
         }
-
 
         // Check if user has liked this poll
         $user_liked = false;
         if ($user_id) {
+            log_message('debug', 'Poll::format_poll_response - Checking user like status');
             $like = $this->common->getdatabytable('poll_likes', array('poll_id' => $poll['id'], 'user_id' => $user_id));
             $user_liked = !empty($like);
+            log_message('debug', 'Poll::format_poll_response - User liked: ' . ($user_liked ? 'yes' : 'no'));
         }
 
         // Format options with vote data
+        log_message('debug', 'Poll::format_poll_response - Formatting options');
         $formatted_options = array();
         foreach ($options as $option) {
             $formatted_option = array(
@@ -568,7 +690,9 @@ class Poll extends CI_Controller
 
         // Check if poll is expired
         $is_expired = strtotime($poll['expires_at']) <= time();
+        log_message('debug', 'Poll::format_poll_response - Poll expired: ' . ($is_expired ? 'yes' : 'no'));
 
+        log_message('debug', 'Poll::format_poll_response - Formatting completed');
         return array(
             'id' => (int)$poll['id'],
             'uuid' => $poll['uuid'],
@@ -599,33 +723,44 @@ class Poll extends CI_Controller
 
     public function user_polls($user_id = null)
     {
+        log_message('debug', 'Poll::user_polls - Getting user polls');
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
+            log_message('debug', 'Poll::user_polls - Unauthorized access attempt');
             $this->output(['status' => 401, 'message' => 'Unauthorized']);
             return;
         }
 
         if (!$user_id) {
-            $user_id = $current_user_id; // If no user ID provided, use current user
+            $user_id = $current_user_id;
+            log_message('debug', 'Poll::user_polls - Using current user ID: ' . $user_id);
+        } else {
+            log_message('debug', 'Poll::user_polls - Using provided user ID: ' . $user_id);
         }
 
         // Get pagination parameters
         $page = $this->input->get('page') ? (int)$this->input->get('page') : 1;
         $limit = $this->input->get('limit') ? (int)$this->input->get('limit') : 10;
+        log_message('debug', 'Poll::user_polls - Pagination - Page: ' . $page . ', Limit: ' . $limit);
 
         // Get total count for pagination
+        log_message('debug', 'Poll::user_polls - Getting total count');
         $total_count = $this->common->get_user_polls_count($user_id);
+        log_message('debug', 'Poll::user_polls - Total count: ' . $total_count);
 
+        log_message('debug', 'Poll::user_polls - Fetching user polls from database');
         $polls = $this->common->get_user_polls_paginated($user_id, $page, $limit);
 
         if (!$polls) {
+            log_message('debug', 'Poll::user_polls - No polls found for user: ' . $user_id);
             $response = $this->create_pagination_response([], $page, $limit, 0);
             $response['message'] = 'No polls found for this user';
             $this->output($response);
             return;
         }
 
+        log_message('debug', 'Poll::user_polls - Retrieved ' . count($polls) . ' polls');
         $polls_data = [];
         foreach ($polls as $poll) {
             $polls_data[] = array(
@@ -639,6 +774,7 @@ class Poll extends CI_Controller
             );
         }
 
+        log_message('debug', 'Poll::user_polls - Formatting completed');
         $response = $this->create_pagination_response($polls_data, $page, $limit, $total_count);
         $response['message'] = 'Polls retrieved successfully';
         $this->output($response);
@@ -646,37 +782,46 @@ class Poll extends CI_Controller
 
     public function post_comment()
     {
+        log_message('debug', 'Poll::post_comment - Posting comment');
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
+            log_message('debug', 'Poll::post_comment - Unauthorized access attempt');
             $this->output(['status' => 401, 'message' => 'Unauthorized']);
             return;
         }
 
+        log_message('debug', 'Poll::post_comment - User authenticated: ' . $current_user_id);
         $post_data = $this->input->post(null, true);
 
         if (empty($post_data['poll_id']) || empty($post_data['comment'])) {
+            log_message('debug', 'Poll::post_comment - Missing poll_id or comment');
             $this->output(['status' => 400, 'message' => 'Poll ID and comment are required']);
             return;
         }
 
         $poll_id = $post_data['poll_id'];
         $comment = trim($post_data['comment']);
+        log_message('debug', 'Poll::post_comment - Comment request - Poll: ' . $poll_id . ', Comment: ' . substr($comment, 0, 50) . '...');
 
         // Check if poll exists
+        log_message('debug', 'Poll::post_comment - Checking poll existence');
         $poll = $this->common->getdatabytable('polls', array('id' => $poll_id, 'status' => 'active'));
         if (!$poll) {
+            log_message('debug', 'Poll::post_comment - Poll not found: ' . $poll_id);
             $this->output(['status' => 404, 'message' => 'Poll not found']);
             return;
         }
 
-        //check poll is not expired
+        // Check poll is not expired
         if (strtotime($poll->expires_at) <= time()) {
+            log_message('debug', 'Poll::post_comment - Poll expired: ' . $poll_id);
             $this->output(['status' => 400, 'message' => 'Cannot comment on expired poll']);
             return;
         }
 
         // Insert comment
+        log_message('debug', 'Poll::post_comment - Inserting comment into database');
         $comment_data = array(
             'poll_id' => $poll_id,
             'user_id' => $current_user_id,
@@ -686,10 +831,14 @@ class Poll extends CI_Controller
 
         $result = $this->common->insert($comment_data, 'poll_comments');
         if ($result) {
+            log_message('debug', 'Poll::post_comment - Comment posted successfully with ID: ' . $result);
+
             // Create notification for poll owner
+            log_message('debug', 'Poll::post_comment - Creating comment notification');
             $this->load->model('Notification_model', 'notification');
             $this->notification->create_comment_notification($poll_id, $current_user_id, $poll->user_id, $result);
 
+            log_message('debug', 'Poll::post_comment - Comment process completed successfully');
             $this->output([
                 'status' => 200,
                 'message' => 'Comment posted successfully',
@@ -701,42 +850,55 @@ class Poll extends CI_Controller
                 )
             ]);
         } else {
+            log_message('error', 'Poll::post_comment - Failed to post comment');
             $this->output(['status' => 500, 'message' => 'Failed to post comment']);
         }
     }
 
     public function comments()
     {
+        log_message('debug', 'Poll::comments - Getting poll comments');
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
+            log_message('debug', 'Poll::comments - Unauthorized access attempt');
             $this->output(['status' => 401, 'message' => 'Unauthorized']);
             return;
         }
 
+        log_message('debug', 'Poll::comments - User authenticated: ' . $current_user_id);
         $poll_id = $this->input->get('poll_id');
         $page = $this->input->get('page') ? (int)$this->input->get('page') : 1;
         $limit = 10;
 
         if (empty($poll_id)) {
+            log_message('debug', 'Poll::comments - Missing poll_id');
             $this->output(['status' => 400, 'message' => 'Poll ID is required']);
             return;
         }
 
+        log_message('debug', 'Poll::comments - Comments request - Poll: ' . $poll_id . ', Page: ' . $page);
+
         // Check if poll exists
+        log_message('debug', 'Poll::comments - Checking poll existence');
         $poll = $this->common->getdatabytable('polls', array('id' => $poll_id, 'status' => 'active'));
         if (!$poll) {
+            log_message('debug', 'Poll::comments - Poll not found: ' . $poll_id);
             $this->output(['status' => 404, 'message' => 'Poll not found']);
             return;
         }
 
         // Get total comments count for pagination
+        log_message('debug', 'Poll::comments - Getting total comments count');
         $total_count = $this->common->get_poll_comments_count($poll_id);
+        log_message('debug', 'Poll::comments - Total comments: ' . $total_count);
 
         // Get comments
+        log_message('debug', 'Poll::comments - Fetching comments from database');
         $comments = $this->common->get_poll_comments($poll_id, $page, $limit);
 
         if (!empty($comments)) {
+            log_message('debug', 'Poll::comments - Retrieved ' . count($comments) . ' comments');
             $formatted_comments = [];
             foreach ($comments as $comment) {
                 $formatted_comments[] = array(
@@ -749,9 +911,11 @@ class Poll extends CI_Controller
                 );
             }
 
+            log_message('debug', 'Poll::comments - Formatting completed');
             $response = $this->create_pagination_response($formatted_comments, $page, $limit, $total_count);
             $this->output($response);
         } else {
+            log_message('debug', 'Poll::comments - No comments found for poll: ' . $poll_id);
             $response = $this->create_pagination_response([], $page, $limit, 0);
             $response['message'] = 'No comments found';
             $this->output($response);
@@ -764,44 +928,56 @@ class Poll extends CI_Controller
      */
     public function toggle_like()
     {
+        log_message('debug', 'Poll::toggle_like - Toggling like');
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
+            log_message('debug', 'Poll::toggle_like - Unauthorized access attempt');
             $this->output(['status' => 401, 'message' => 'Unauthorized']);
             return;
         }
 
+        log_message('debug', 'Poll::toggle_like - User authenticated: ' . $current_user_id);
         $post_data = $this->input->post(null, true);
 
         if (empty($post_data['poll_id'])) {
+            log_message('debug', 'Poll::toggle_like - Missing poll_id');
             $this->output(['status' => 400, 'message' => 'Poll ID is required']);
             return;
         }
 
         $poll_id = $post_data['poll_id'];
+        log_message('debug', 'Poll::toggle_like - Like toggle request for poll: ' . $poll_id);
 
         // Check if poll exists and is active
+        log_message('debug', 'Poll::toggle_like - Checking poll existence');
         $poll = $this->common->getdatabytable('polls', array('id' => $poll_id, 'status' => 'active'));
 
         if (!$poll) {
+            log_message('debug', 'Poll::toggle_like - Poll not found: ' . $poll_id);
             $this->output(['status' => 404, 'message' => 'Poll not found']);
             return;
         }
 
         // Check if user has already liked this poll
+        log_message('debug', 'Poll::toggle_like - Checking existing like');
         $existing_like = $this->common->getdatabytable('poll_likes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
 
         if ($existing_like) {
+            log_message('debug', 'Poll::toggle_like - User already liked, removing like');
             // Unlike - remove the like
             $result = $this->common->deleteWhere('poll_likes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
 
             if ($result) {
+                log_message('debug', 'Poll::toggle_like - Like removed successfully');
+
                 // Decrease likes count in polls table
                 $this->common->increasePollLikesCount($poll_id, -1);
 
                 // Get updated likes count
                 $updated_poll = $this->common->getdatabytable('polls', array('id' => $poll_id));
 
+                log_message('debug', 'Poll::toggle_like - Unlike process completed');
                 $this->output([
                     'status' => 200,
                     'message' => 'Poll unliked successfully',
@@ -812,9 +988,11 @@ class Poll extends CI_Controller
                     )
                 ]);
             } else {
+                log_message('error', 'Poll::toggle_like - Failed to remove like');
                 $this->output(['status' => 500, 'message' => 'Failed to unlike poll']);
             }
         } else {
+            log_message('debug', 'Poll::toggle_like - User not liked, adding like');
             // Like - add the like
             $like_data = array(
                 'poll_id' => $poll_id,
@@ -824,11 +1002,14 @@ class Poll extends CI_Controller
             $result = $this->common->insert($like_data, 'poll_likes');
 
             if ($result) {
+                log_message('debug', 'Poll::toggle_like - Like added successfully');
+
                 // Increase likes count in polls table
                 $this->common->increasePollLikesCount($poll_id);
 
                 // Create notification for poll owner (if not liking own poll)
                 if ($poll->user_id != $current_user_id) {
+                    log_message('debug', 'Poll::toggle_like - Creating like notification');
                     $this->load->model('Notification_model', 'notification');
                     $this->notification->create_like_notification($poll_id, $current_user_id, $poll->user_id);
                 }
@@ -836,6 +1017,7 @@ class Poll extends CI_Controller
                 // Get updated likes count
                 $updated_poll = $this->common->getdatabytable('polls', array('id' => $poll_id));
 
+                log_message('debug', 'Poll::toggle_like - Like process completed');
                 $this->output([
                     'status' => 200,
                     'message' => 'Poll liked successfully',
@@ -846,6 +1028,7 @@ class Poll extends CI_Controller
                     )
                 ]);
             } else {
+                log_message('error', 'Poll::toggle_like - Failed to add like');
                 $this->output(['status' => 500, 'message' => 'Failed to like poll']);
             }
         }
