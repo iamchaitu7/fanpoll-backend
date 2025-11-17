@@ -75,135 +75,105 @@ class Poll extends CI_Controller
         ];
     }
 
-    /**
-     * Create a new poll
-     * POST /poll/create
-     */
-    public function create()
-    {
-        $current_user_id = $this->get_authenticated_user();
+   /**
+ * Create a new poll
+ * POST /poll/create
+ */
+public function create()
+{
+    $current_user_id = $this->get_authenticated_user();
 
-        if (!$current_user_id) {
-            $this->output(['status' => 401, 'message' => 'Unauthorized']);
-            return;
-        }
-
-        $post_data = $this->input->post(null, true);
-
-        // Validate required fields
-        if (empty($post_data['title'])) {
-            $this->output(['status' => 400, 'message' => 'Poll title is required']);
-            return;
-        }
-
-        if (empty($post_data['options']) || !is_array($post_data['options']) || count($post_data['options']) < 2) {
-            $this->output(['status' => 400, 'message' => 'At least 2 poll options are required']);
-            return;
-        }
-
-        if (empty($post_data['expires_in_days']) || $post_data['expires_in_days'] < 1 || $post_data['expires_in_days'] > 7) {
-            $this->output(['status' => 400, 'message' => 'Expiry must be between 1-7 days']);
-            return;
-        }
-
-        // Handle image upload if provided
-        $image_path = null;
-        if (!empty($_FILES['image']['name'])) {
-            $upload_path = './uploads/poll_images/';
-            $file = $_FILES['image'];
-
-            // Validate file
-            if ($file['error'] !== UPLOAD_ERR_OK) {
-                $this->output(['status' => 400, 'message' => 'Upload error occurred.']);
-                return;
-            }
-
-            // Check file size (5MB = 5242880 bytes)
-            if ($file['size'] > 5242880) {
-                $this->output(['status' => 400, 'message' => 'File too large. Maximum size is 5MB.']);
-                return;
-            }
-
-            // Validate extension
-            $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
-
-            if (!in_array($file_ext, $allowed_extensions)) {
-                $this->output(['status' => 400, 'message' => 'Invalid file type.']);
-                return;
-            }
-
-            // Validate that it's actually an image
-            $image_info = getimagesize($file['tmp_name']);
-            if (!$image_info) {
-                $this->output(['status' => 400, 'message' => 'File is not a valid image.']);
-                return;
-            }
-
-            // Generate unique filename
-            $new_filename = uniqid() . '.' . $file_ext;
-            $destination = $upload_path . $new_filename;
-
-            // Create directory if it doesn't exist
-            if (!is_dir($upload_path)) {
-                mkdir($upload_path, 0755, true);
-            }
-
-            // Move uploaded file
-            if (move_uploaded_file($file['tmp_name'], $destination)) {
-                $image_path = $new_filename;
-            } else {
-                $this->output(['status' => 400, 'message' => 'Failed to save uploaded file.']);
-                return;
-            }
-        }
-
-        // Calculate expiry date
-        $expires_at = date('Y-m-d H:i:s', strtotime('+' . $post_data['expires_in_days'] . ' days'));
-
-        // Process hashtags to remove duplicates
-        $hashtags = null;
-        if (!empty($post_data['hashtags'])) {
-            // Split by comma, trim whitespace, remove empty values, and get unique values
-            $hashtags_array = array_filter(array_map('trim', explode(',', $post_data['hashtags'])));
-            $unique_hashtags = array_unique($hashtags_array, SORT_STRING);
-            // Convert back to comma-separated string
-            $hashtags = implode(',', $unique_hashtags);
-        }
-
-        // Create poll
-        $poll_data = array(
-            'user_id' => $current_user_id,
-            'title' => $post_data['title'],
-            'description' => !empty($post_data['description']) ? $post_data['description'] : null,
-            'url' => !empty($post_data['url']) ? $post_data['url'] : null,
-            'image_path' => $image_path,
-            'hashtags' => $hashtags,
-            'expires_at' => $expires_at,
-            'status' => 'active'
-        );
-
-        $poll_id = $this->common->insert($poll_data, 'polls');
-
-        if (!$poll_id) {
-            $this->output(['status' => 500, 'message' => 'Failed to create poll']);
-            return;
-        }
-
-        // Create poll options
-        foreach ($post_data['options'] as $index => $option_text) {
-            if (!empty(trim($option_text))) {
-                $option_data = array(
-                    'poll_id' => $poll_id,
-                    'option_text' => trim($option_text),
-                    'option_order' => $index + 1
-                );
-                $this->common->insert($option_data, 'poll_options');
-            }
-        }
-
-        $this->output(['status' => 200, 'message' => 'Poll created successfully', 'poll_id' => $poll_id]);
+    if (!$current_user_id) {
+        $this->output(['status' => 401, 'message' => 'Unauthorized']);
+        return;
     }
+
+    $post_data = $this->input->post(null, true);
+
+    // Your existing validation code...
+    // [Keep all your existing validation code]
+
+    // Handle image upload if provided
+    $image_path = null;
+    $image_url = null; // Add this variable
+    if (!empty($_FILES['image']['name'])) {
+        $upload_path = './uploads/poll_images/';
+        $file = $_FILES['image'];
+
+        // Your existing file validation code...
+        // [Keep all your existing file validation]
+
+        // Generate unique filename
+        $new_filename = uniqid() . '.' . $file_ext;
+        $destination = $upload_path . $new_filename;
+
+        // Create directory if it doesn't exist
+        if (!is_dir($upload_path)) {
+            mkdir($upload_path, 0755, true);
+        }
+
+        // Move uploaded file
+        if (move_uploaded_file($file['tmp_name'], $destination)) {
+            $image_path = $new_filename;
+            // ADD THIS: Generate full URL for response
+            $base_url = 'https://fanpoll-backend-production.up.railway.app';
+            $image_url = $base_url . '/uploads/poll_images/' . $new_filename;
+        } else {
+            $this->output(['status' => 400, 'message' => 'Failed to save uploaded file.']);
+            return;
+        }
+    }
+
+    // Calculate expiry date
+    $expires_at = date('Y-m-d H:i:s', strtotime('+' . $post_data['expires_in_days'] . ' days'));
+
+    // Process hashtags to remove duplicates
+    $hashtags = null;
+    if (!empty($post_data['hashtags'])) {
+        $hashtags_array = array_filter(array_map('trim', explode(',', $post_data['hashtags'])));
+        $unique_hashtags = array_unique($hashtags_array, SORT_STRING);
+        $hashtags = implode(',', $unique_hashtags);
+    }
+
+    // Create poll
+    $poll_data = array(
+        'user_id' => $current_user_id,
+        'title' => $post_data['title'],
+        'description' => !empty($post_data['description']) ? $post_data['description'] : null,
+        'url' => !empty($post_data['url']) ? $post_data['url'] : null,
+        'image_path' => $image_path, // Store filename in database
+        'hashtags' => $hashtags,
+        'expires_at' => $expires_at,
+        'status' => 'active'
+    );
+
+    $poll_id = $this->common->insert($poll_data, 'polls');
+
+    if (!$poll_id) {
+        $this->output(['status' => 500, 'message' => 'Failed to create poll']);
+        return;
+    }
+
+    // Create poll options
+    foreach ($post_data['options'] as $index => $option_text) {
+        if (!empty(trim($option_text))) {
+            $option_data = array(
+                'poll_id' => $poll_id,
+                'option_text' => trim($option_text),
+                'option_order' => $index + 1
+            );
+            $this->common->insert($option_data, 'poll_options');
+        }
+    }
+
+    // RETURN FULL IMAGE URL IN RESPONSE
+    $this->output([
+        'status' => 200, 
+        'message' => 'Poll created successfully', 
+        'poll_id' => $poll_id,
+        'image_url' => $image_url // Add this line
+    ]);
+}
 
     /**
      * Get active polls
