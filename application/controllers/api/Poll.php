@@ -218,23 +218,6 @@ class Poll extends CI_Controller
     }
 
     /**
-     * Get authenticated user ID
-     */
-    private function get_authenticated_user() {
-        // Your existing authentication logic
-        $headers = $this->input->request_headers();
-        
-        if (isset($headers['Authorization'])) {
-            $token = str_replace('Bearer ', '', $headers['Authorization']);
-            // Validate token and return user ID
-            // This is your existing authentication logic
-            return $this->validate_token_and_get_user($token);
-        }
-        
-        return false;
-    }
-
-    /**
      * Validate token and get user ID (your existing method)
      */
     private function validate_token_and_get_user($token) {
