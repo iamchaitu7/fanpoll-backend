@@ -40,6 +40,14 @@ header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, PATCH, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-API-Key, Accept");
 header("Access-Control-Expose-Headers: Authorization, X-API-Key");
 header("Access-Control-Max-Age: 86400"); // 24 hours
+header("Access-Control-Allow-Origin: *");
+
+$path = __DIR__ . "/uploads/poll_images/" . basename($_GET["file"]);
+if (file_exists($path)) {
+    header("Content-Type: image/jpeg");
+    readfile($path);
+}
+
 
 // Handle preflight OPTIONS request
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
@@ -49,3 +57,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 
 // Your existing PHP code continues here...
 ?>
+
+
+
