@@ -1,4 +1,5 @@
 <IfModule mod_headers.c>
+    # Allow all origins for static files
     Header always set Access-Control-Allow-Origin "*"
     Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"
     Header always set Access-Control-Allow-Headers "Origin, X-Requested-With, Content-Type, Accept, Authorization"
@@ -8,10 +9,10 @@
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    # Allow direct access to all files in uploads directory
+    # Allow direct access to files
 </IfModule>
 
 # Cache control for images
-<FilesMatch "\.(jpg|jpeg|png|gif)$">
+<FilesMatch "\.(jpg|jpeg|png|gif|webp)$">
     Header set Cache-Control "max-age=2592000, public"
 </FilesMatch>
