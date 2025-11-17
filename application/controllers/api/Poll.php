@@ -720,7 +720,7 @@ private function format_poll_response($poll, $user_id, $show_results = false)
 
     // Handle avatar URL - ensure it's HTTPS and provide fallback
     $avatar_url = $base_domain . '/uploads/profile_pictures/';
-    if (!empty($poll['creator_avatar']) && $poll['creator_avatar'] !== 'default.png') {
+    if (!empty($poll['creator_avatar']) && $poll['creator_avatar'] !== 'default-profile.jpg') {
         $avatar_path = $poll['creator_avatar'];
         $avatar_path = rtrim($avatar_path, '.'); // Remove trailing dots
         $avatar_url .= $avatar_path;
