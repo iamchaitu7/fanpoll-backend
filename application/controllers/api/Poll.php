@@ -649,90 +649,114 @@ class Poll extends CI_Controller
         }
     }
 
-    /**
-     * Format poll response with options and user vote status
-     */
-    private function format_poll_response($poll, $user_id, $show_results = false)
-    {
-        log_message('debug', 'Poll::format_poll_response - Formatting poll response for poll: ' . $poll['id']);
-        
-        // Get poll options
-        log_message('debug', 'Poll::format_poll_response - Getting poll options');
-        $options = $this->common->get_poll_options($poll['id']);
-        log_message('debug', 'Poll::format_poll_response - Retrieved ' . count($options) . ' options');
+   /**
+ * Format poll response with options and user vote status
+ */
+private function format_poll_response($poll, $user_id, $show_results = false)
+{
+    log_message('debug', 'Poll::format_poll_response - Formatting poll response for poll: ' . $poll['id']);
+    
+    // Get poll options
+    log_message('debug', 'Poll::format_poll_response - Getting poll options');
+    $options = $this->common->get_poll_options($poll['id']);
+    log_message('debug', 'Poll::format_poll_response - Retrieved ' . count($options) . ' options');
 
-        // Check if user has voted
-        $user_vote = null;
-        if ($user_id) {
-            log_message('debug', 'Poll::format_poll_response - Checking user vote status');
-            $vote = $this->common->getdatabytable('poll_votes', array('poll_id' => $poll['id'], 'user_id' => $user_id));
-            $user_vote = $vote ? $vote->option_id : null;
-            log_message('debug', 'Poll::format_poll_response - User vote: ' . ($user_vote ? $user_vote : 'none'));
-        }
-
-        // Check if user has liked this poll
-        $user_liked = false;
-        if ($user_id) {
-            log_message('debug', 'Poll::format_poll_response - Checking user like status');
-            $like = $this->common->getdatabytable('poll_likes', array('poll_id' => $poll['id'], 'user_id' => $user_id));
-            $user_liked = !empty($like);
-            log_message('debug', 'Poll::format_poll_response - User liked: ' . ($user_liked ? 'yes' : 'no'));
-        }
-
-        // Format options with vote data
-        log_message('debug', 'Poll::format_poll_response - Formatting options');
-        $formatted_options = array();
-        foreach ($options as $option) {
-            $formatted_option = array(
-                'id' => (int)$option['id'],
-                'text' => $option['option_text'],
-                'order' => (int)$option['option_order'],
-                'vote_count' => (int)$option['vote_count'],
-                'percentage' => $poll['total_votes'] > 0 ? round(($option['vote_count'] / $poll['total_votes']) * 100, 1) : 0,
-                'is_voted' => $user_vote == $option['id']
-            );
-
-            // Hide vote counts for active polls if user hasn't voted (unless showing results)
-            if (!$show_results && !$user_vote && strtotime($poll['expires_at']) > time()) {
-                $formatted_option['vote_count'] = 0;
-                $formatted_option['percentage'] = 0;
-            }
-
-            $formatted_options[] = $formatted_option;
-        }
-
-        // Check if poll is expired
-        $is_expired = strtotime($poll['expires_at']) <= time();
-        log_message('debug', 'Poll::format_poll_response - Poll expired: ' . ($is_expired ? 'yes' : 'no'));
-
-        log_message('debug', 'Poll::format_poll_response - Formatting completed');
-        return array(
-            'id' => (int)$poll['id'],
-            'uuid' => $poll['uuid'],
-            'title' => $poll['title'],
-            'description' => $poll['description'],
-            'url' => $poll['url'],
-            'image_url' => $poll['image_path'] ? base_url('uploads/poll_images/' . $poll['image_path']) : null,
-            'hashtags' => $poll['hashtags'],
-            'total_votes' => (int)$poll['total_votes'],
-            'likes_count' => (int)$poll['likes_count'],
-            'comments_count' => (int)$poll['comments_count'],
-            'expires_at' => $poll['expires_at'],
-            'is_expired' => $is_expired,
-            'can_vote' => !$is_expired && !$user_vote,
-            'has_voted' => !empty($user_vote),
-            'is_liked' => $user_liked,
-            'created_at' => $poll['created_at'],
-            'creator' => array(
-                'id'            => (int)$poll['user_id'],
-                'name'          => $poll['creator_name'],
-                'avatar'        => base_url('uploads/profile_pictures/' . $poll['creator_avatar']),
-                'is_following'  => isset($poll['is_following']) ? (bool)$poll['is_following'] : false
-            ),
-            'options' => $formatted_options,
-            'is_own_poll' => $poll['user_id'] == $user_id
-        );
+    // Check if user has voted
+    $user_vote = null;
+    if ($user_id) {
+        log_message('debug', 'Poll::format_poll_response - Checking user vote status');
+        $vote = $this->common->getdatabytable('poll_votes', array('poll_id' => $poll['id'], 'user_id' => $user_id));
+        $user_vote = $vote ? $vote->option_id : null;
+        log_message('debug', 'Poll::format_poll_response - User vote: ' . ($user_vote ? $user_vote : 'none'));
     }
+
+    // Check if user has liked this poll
+    $user_liked = false;
+    if ($user_id) {
+        log_message('debug', 'Poll::format_poll_response - Checking user like status');
+        $like = $this->common->getdatabytable('poll_likes', array('poll_id' => $poll['id'], 'user_id' => $user_id));
+        $user_liked = !empty($like);
+        log_message('debug', 'Poll::format_poll_response - User liked: ' . ($user_liked ? 'yes' : 'no'));
+    }
+
+    // Format options with vote data
+    log_message('debug', 'Poll::format_poll_response - Formatting options');
+    $formatted_options = array();
+    foreach ($options as $option) {
+        $formatted_option = array(
+            'id' => (int)$option['id'],
+            'text' => $option['option_text'],
+            'order' => (int)$option['option_order'],
+            'vote_count' => (int)$option['vote_count'],
+            'percentage' => $poll['total_votes'] > 0 ? round(($option['vote_count'] / $poll['total_votes']) * 100, 1) : 0,
+            'is_voted' => $user_vote == $option['id']
+        );
+
+        // Hide vote counts for active polls if user hasn't voted (unless showing results)
+        if (!$show_results && !$user_vote && strtotime($poll['expires_at']) > time()) {
+            $formatted_option['vote_count'] = 0;
+            $formatted_option['percentage'] = 0;
+        }
+
+        $formatted_options[] = $formatted_option;
+    }
+
+    // Check if poll is expired
+    $is_expired = strtotime($poll['expires_at']) <= time();
+    log_message('debug', 'Poll::format_poll_response - Poll expired: ' . ($is_expired ? 'yes' : 'no'));
+
+    // FIX: Use HTTPS URLs instead of base_url() to avoid CORS issues
+    $base_domain = 'https://fanpoll-backend-production.up.railway.app';
+    
+    // Handle image URL - ensure it's HTTPS and has proper extension
+    $image_url = null;
+    if (!empty($poll['image_path'])) {
+        $image_path = $poll['image_path'];
+        // Remove any trailing dots that might cause issues
+        $image_path = rtrim($image_path, '.');
+        $image_url = $base_domain . '/uploads/poll_images/' . $image_path;
+        log_message('debug', 'Poll::format_poll_response - Image URL: ' . $image_url);
+    }
+
+    // Handle avatar URL - ensure it's HTTPS and provide fallback
+    $avatar_url = $base_domain . '/uploads/profile_pictures/';
+    if (!empty($poll['creator_avatar']) && $poll['creator_avatar'] !== 'default.png') {
+        $avatar_path = $poll['creator_avatar'];
+        $avatar_path = rtrim($avatar_path, '.'); // Remove trailing dots
+        $avatar_url .= $avatar_path;
+    } else {
+        $avatar_url .= 'default.png'; // Fallback to default avatar
+    }
+    log_message('debug', 'Poll::format_poll_response - Avatar URL: ' . $avatar_url);
+
+    log_message('debug', 'Poll::format_poll_response - Formatting completed');
+    return array(
+        'id' => (int)$poll['id'],
+        'uuid' => $poll['uuid'],
+        'title' => $poll['title'],
+        'description' => $poll['description'],
+        'url' => $poll['url'],
+        'image_url' => $image_url, // FIXED: Using HTTPS URL
+        'hashtags' => $poll['hashtags'],
+        'total_votes' => (int)$poll['total_votes'],
+        'likes_count' => (int)$poll['likes_count'],
+        'comments_count' => (int)$poll['comments_count'],
+        'expires_at' => $poll['expires_at'],
+        'is_expired' => $is_expired,
+        'can_vote' => !$is_expired && !$user_vote,
+        'has_voted' => !empty($user_vote),
+        'is_liked' => $user_liked,
+        'created_at' => $poll['created_at'],
+        'creator' => array(
+            'id'            => (int)$poll['user_id'],
+            'name'          => $poll['creator_name'],
+            'avatar'        => $avatar_url, // FIXED: Using HTTPS URL
+            'is_following'  => isset($poll['is_following']) ? (bool)$poll['is_following'] : false
+        ),
+        'options' => $formatted_options,
+        'is_own_poll' => $poll['user_id'] == $user_id
+    );
+}
 
     public function user_polls($user_id = null)
     {
