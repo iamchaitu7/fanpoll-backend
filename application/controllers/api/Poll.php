@@ -227,15 +227,7 @@ class Poll extends CI_Controller
         return $user ? $user['id'] : false;
     }
 
-    /**
-     * Output JSON response
-     */
-    private function output($data) {
-        $this->output
-            ->set_content_type('application/json')
-            ->set_output(json_encode($data));
-    }
-
+  
     /**
      * Get active polls
      * GET /poll/active_polls
