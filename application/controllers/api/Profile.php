@@ -54,7 +54,7 @@ class Profile extends CI_Controller
             return "https://res.cloudinary.com/{$cloud_name}/image/upload/w_150,h_150,c_fill,q_auto,f_auto/{$profile_picture}";
         } else {
             // It's a local file - use existing local URL
-            return base_url('uploads/profile_pictures/' . $profile_picture);
+            return "https://fanpoll-backend-production.up.railway.app/serve_image.php?file=/uploads/profile_pictures/default.png";
         }
     }
 
