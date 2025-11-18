@@ -776,13 +776,11 @@ private function format_poll_response($poll, $user_id, $show_results = false)
             $cloud_name = 'dq9zl6oob'; // Replace with your Cloudinary cloud name
             $public_id = $poll['creator_avatar'];
             $avatar_url = "https://res.cloudinary.com/{$cloud_name}/image/upload/w_100,h_100,c_fill,q_auto,f_auto/{$public_id}";
-            log_message('debug', 'Poll::format_poll_response - Cloudinary avatar URL generated');
         } else {
             // Local avatar
             $base_domain = 'https://fanpoll-backend-production.up.railway.app/serve_image.php?file=';
             $avatar_path = rtrim($poll['creator_avatar'], '.');
-            $avatar_url = $base_domain . '/uploads/profile_pictures/' . $avatar_path;
-            log_message('debug', 'Poll::format_poll_response - Local avatar URL: ' . $avatar_url);
+            $avatar_url = $base_domain . '/uploads/profile_pictures/default.png';
         }
     } else {
         // Fallback to default avatar - you can use Cloudinary for this too
