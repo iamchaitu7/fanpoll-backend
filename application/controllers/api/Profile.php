@@ -44,7 +44,7 @@ class Profile extends CI_Controller
     {
         // If no profile picture, return default
         if (empty($profile_picture) || $profile_picture === 'default-profile.jpg') {
-            return base_url('uploads/profile_pictures/default.png');
+            return "https://fanpoll-backend-production.up.railway.app/serve_image.php?file=/uploads/profile_pictures/default.png";
         }
 
         // Check if it's a Cloudinary public_id (starts with 'avatars/' or 'profile_images/')
