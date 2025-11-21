@@ -528,31 +528,59 @@ private function upload_to_cloudinary($file_path, $file_extension)
             'user_agent' => $this->input->user_agent()
         );
 
-        $result = $this->common->insert($vote_data, 'poll_votes');
+        try {
+    $result = $this->common->insert($vote_data, 'poll_votes');
 
-        if ($result) {
-            log_message('debug', 'Poll::vote - Vote cast successfully');
+    if ($result) {
+        log_message('debug', 'Poll::vote - Vote cast successfully');
 
-            // Create notification for poll owner
-            log_message('debug', 'Poll::vote - Creating vote notification');
-            $this->load->model('Notification_model', 'notification');
-            $this->notification->create_vote_notification($poll_id, $current_user_id, $poll->user_id);
+        // Create notification for poll owner
+        log_message('debug', 'Poll::vote - Creating vote notification');
+        $this->load->model('Notification_model', 'notification');
+        $this->notification->create_vote_notification($poll_id, $current_user_id, $poll->user_id);
 
-            // Get updated poll with results
-            log_message('debug', 'Poll::vote - Fetching updated poll data');
-            $updated_poll = $this->common->get_poll_by_id($poll_id);
-            $formatted_poll = $this->format_poll_response($updated_poll, $current_user_id, false);
+        // Get updated poll with results
+        log_message('debug', 'Poll::vote - Fetching updated poll data');
+        $updated_poll = $this->common->get_poll_by_id($poll_id);
+        $formatted_poll = $this->format_poll_response($updated_poll, $current_user_id, false);
 
-            log_message('debug', 'Poll::vote - Vote process completed successfully');
-            $this->output([
-                'status' => 200,
-                'message' => 'Vote cast successfully',
-                'poll' => $formatted_poll
-            ]);
-        } else {
-            log_message('error', 'Poll::vote - Failed to cast vote');
-            $this->output(['status' => 500, 'message' => 'Failed to cast vote']);
-        }
+        log_message('debug', 'Poll::vote - Vote process completed successfully');
+        $this->output([
+            'status' => 200,
+            'message' => 'Vote cast successfully',
+            'poll' => $formatted_poll
+        ]);
+    } else {
+        // Get database error details
+        $db_error = $this->db->error();
+        log_message('error', 'Poll::vote - Database error: ' . json_encode($db_error));
+        log_message('error', 'Poll::vote - Vote data: ' . json_encode($vote_data));
+        
+        $this->output([
+            'status' => 500, 
+            'message' => 'Failed to cast vote',
+            'debug' => [
+                'database_error' => $db_error,
+                'vote_data' => $vote_data,
+                'insert_result' => $result
+            ]
+        ]);
+    }
+
+} catch (Exception $e) {
+    log_message('error', 'Poll::vote - Exception: ' . $e->getMessage());
+    log_message('error', 'Poll::vote - Stack trace: ' . $e->getTraceAsString());
+    
+    $this->output([
+        'status' => 500,
+        'message' => 'Failed to cast vote',
+        'debug' => [
+            'exception' => $e->getMessage(),
+            'exception_trace' => $e->getTraceAsString(),
+            'vote_data' => $vote_data
+        ]
+    ]);
+}
     }
 
     /**
