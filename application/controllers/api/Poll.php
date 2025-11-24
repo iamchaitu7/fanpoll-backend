@@ -8,9 +8,9 @@ class Poll extends CI_Controller
 
     function __construct()
 {
-    log_message('debug', 'Poll::__construct - Constructor called');
     parent::__construct();
     $this->load->model('Common_model', 'common');
+    $this->load->model('Notification_model', 'notification');
     $this->tokenHandler = new TokenHandler();
 
     $allowed_origins = config_item('allowed_origins');
@@ -35,7 +35,6 @@ class Poll extends CI_Controller
         exit();
     }
     
-    log_message('debug', 'Poll::__construct - Constructor completed');
 }
 
     public function output($data)
@@ -459,67 +458,54 @@ private function upload_to_cloudinary($file_path, $file_extension)
      */
     public function vote()
     {
-        log_message('debug', 'Poll::vote - Processing vote');
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
-            log_message('debug', 'Poll::vote - Unauthorized access attempt');
             $this->output(['status' => 401, 'message' => 'Unauthorized']);
             return;
         }
 
-        log_message('debug', 'Poll::vote - User authenticated: ' . $current_user_id);
         $post_data = $this->input->post(null, true);
 
         if (empty($post_data['poll_id']) || empty($post_data['option_id'])) {
-            log_message('debug', 'Poll::vote - Missing poll_id or option_id');
             $this->output(['status' => 400, 'message' => 'Poll ID and Option ID are required']);
             return;
         }
 
         $poll_id = $post_data['poll_id'];
         $option_id = $post_data['option_id'];
-        log_message('debug', 'Poll::vote - Vote request - Poll: ' . $poll_id . ', Option: ' . $option_id);
 
         // Check if poll exists and is active
-        log_message('debug', 'Poll::vote - Checking poll existence');
         $poll = $this->common->getdatabytable('polls', array('id' => $poll_id, 'status' => 'active'));
 
         if (!$poll) {
-            log_message('debug', 'Poll::vote - Poll not found: ' . $poll_id);
             $this->output(['status' => 404, 'message' => 'Poll not found']);
             return;
         }
 
         // Check if poll is expired
         if (strtotime($poll->expires_at) <= time()) {
-            log_message('debug', 'Poll::vote - Poll expired: ' . $poll_id);
             $this->output(['status' => 400, 'message' => 'Poll has expired']);
             return;
         }
 
         // Check if option exists
-        log_message('debug', 'Poll::vote - Checking option existence');
         $option = $this->common->getdatabytable('poll_options', array('id' => $option_id, 'poll_id' => $poll_id));
 
         if (!$option) {
-            log_message('debug', 'Poll::vote - Option not found: ' . $option_id);
             $this->output(['status' => 404, 'message' => 'Poll option not found']);
             return;
         }
 
         // Check if user has already voted
-        log_message('debug', 'Poll::vote - Checking existing vote');
         $existing_vote = $this->common->getdatabytable('poll_votes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
 
         if ($existing_vote) {
-            log_message('debug', 'Poll::vote - User already voted: ' . $current_user_id);
             $this->output(['status' => 400, 'message' => 'You have already voted on this poll']);
             return;
         }
 
         // Cast vote
-        log_message('debug', 'Poll::vote - Casting vote');
         $vote_data = array(
             'poll_id' => $poll_id,
             'option_id' => $option_id,
@@ -532,19 +518,15 @@ private function upload_to_cloudinary($file_path, $file_extension)
     $result = $this->common->insert($vote_data, 'poll_votes');
 
     if ($result) {
-        log_message('debug', 'Poll::vote - Vote cast successfully');
 
         // Create notification for poll owner
-        log_message('debug', 'Poll::vote - Creating vote notification');
         $this->load->model('Notification_model', 'notification');
         $this->notification->create_vote_notification($poll_id, $current_user_id, $poll->user_id);
 
         // Get updated poll with results
-        log_message('debug', 'Poll::vote - Fetching updated poll data');
         $updated_poll = $this->common->get_poll_by_id($poll_id);
         $formatted_poll = $this->format_poll_response($updated_poll, $current_user_id, false);
 
-        log_message('debug', 'Poll::vote - Vote process completed successfully');
         $this->output([
             'status' => 200,
             'message' => 'Vote cast successfully',
@@ -553,8 +535,6 @@ private function upload_to_cloudinary($file_path, $file_extension)
     } else {
         // Get database error details
         $db_error = $this->db->error();
-        log_message('error', 'Poll::vote - Database error: ' . json_encode($db_error));
-        log_message('error', 'Poll::vote - Vote data: ' . json_encode($vote_data));
         
         $this->output([
             'status' => 500, 
@@ -568,8 +548,6 @@ private function upload_to_cloudinary($file_path, $file_extension)
     }
 
 } catch (Exception $e) {
-    log_message('error', 'Poll::vote - Exception: ' . $e->getMessage());
-    log_message('error', 'Poll::vote - Stack trace: ' . $e->getTraceAsString());
     
     $this->output([
         'status' => 500,
@@ -991,6 +969,7 @@ private function format_poll_response($poll, $user_id, $show_results = false)
         'poll_owner_id' => $poll->user_id,
         'comment_id' => $result,
         'notification_model_loaded' => false,
+        'class_exists' => class_exists('Notification_model'),
         'method_exists' => false,
         'notification_result' => false,
         'db_error' => null
