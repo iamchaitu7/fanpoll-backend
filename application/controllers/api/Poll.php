@@ -1229,8 +1229,6 @@ private function format_poll_response($poll, $user_id, $show_results = false)
                 $increase_result = $this->common->increasePollLikesCount($poll_id);
                 if (!$increase_result) {
                     throw new Exception('Failed to increase likes count in polls table');
-                }
-
                 // Create notification for poll owner (if not liking own poll)
                 if ($poll->user_id != $current_user_id) {
                     if (class_exists('Notification_model')) {
@@ -1239,7 +1237,6 @@ private function format_poll_response($poll, $user_id, $show_results = false)
                         
                         if (!$notification_result) {
                             // Log but don't fail the operation
-                            log_message('warning', 'Failed to create like notification for poll: ' . $poll_id);
                         }
                     }
                 }
