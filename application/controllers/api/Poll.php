@@ -589,77 +589,99 @@ private function upload_to_cloudinary($file_path, $file_extension)
      */
     public function undo_vote()
     {
-        log_message('debug', 'Poll::undo_vote - Processing vote undo');
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
-            log_message('debug', 'Poll::undo_vote - Unauthorized access attempt');
             $this->output(['status' => 401, 'message' => 'Unauthorized']);
             return;
         }
 
-        log_message('debug', 'Poll::undo_vote - User authenticated: ' . $current_user_id);
         $post_data = $this->input->post(null, true);
 
         if (empty($post_data['poll_id'])) {
-            log_message('debug', 'Poll::undo_vote - Missing poll_id');
             $this->output(['status' => 400, 'message' => 'Poll ID is required']);
             return;
         }
 
         $poll_id = $post_data['poll_id'];
-        log_message('debug', 'Poll::undo_vote - Undo vote request for poll: ' . $poll_id);
 
         // Check if poll exists and is active
-        log_message('debug', 'Poll::undo_vote - Checking poll existence');
         $poll = $this->common->getdatabytable('polls', array('id' => $poll_id, 'status' => 'active'));
 
         if (!$poll) {
-            log_message('debug', 'Poll::undo_vote - Poll not found: ' . $poll_id);
             $this->output(['status' => 404, 'message' => 'Poll not found']);
             return;
         }
 
         // Check if poll is expired
         if (strtotime($poll->expires_at) <= time()) {
-            log_message('debug', 'Poll::undo_vote - Poll expired: ' . $poll_id);
             $this->output(['status' => 400, 'message' => 'Cannot undo vote on expired poll']);
             return;
         }
 
         // Check if user has voted
-        log_message('debug', 'Poll::undo_vote - Checking existing vote');
         $existing_vote = $this->common->getdatabytable('poll_votes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
 
         if (!$existing_vote) {
-            log_message('debug', 'Poll::undo_vote - User has not voted: ' . $current_user_id);
             $this->output(['status' => 400, 'message' => 'You have not voted on this poll']);
             return;
         }
+         // Start transaction for data consistency
+        $this->db->trans_start();
 
         // Delete vote
-        log_message('debug', 'Poll::undo_vote - Deleting vote');
-        $result = $this->common->deleteWhere('poll_votes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
+        $vote_deleted = $this->common->deleteWhere('poll_votes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
 
-        if ($result) {
-            log_message('debug', 'Poll::undo_vote - Vote deleted successfully');
-
-            // Get updated poll without user vote
-            log_message('debug', 'Poll::undo_vote - Fetching updated poll data');
-            $updated_poll = $this->common->get_poll_by_id($poll_id);
-            $formatted_poll = $this->format_poll_response($updated_poll, $current_user_id, false);
-
-            log_message('debug', 'Poll::undo_vote - Vote undo process completed successfully');
-            $this->output([
-                'status' => 200,
-                'message' => 'Vote removed successfully',
-                'poll' => $formatted_poll
-            ]);
-        } else {
-            log_message('error', 'Poll::undo_vote - Failed to delete vote');
-            $this->output(['status' => 500, 'message' => 'Failed to remove vote']);
+        if ($vote_deleted) {
+            // Decrement total_votes in polls table
+            $this->db->where('id', $poll_id);
+            $this->db->set('total_votes', 'total_votes - 1', false);
+            $this->db->update('polls');
+            
+            // Decrement vote_count in poll_options table for the specific option
+            if (isset($existing_vote->option_id)) {
+                $this->db->where('id', $existing_vote->option_id);
+                $this->db->set('vote_count', 'vote_count - 1', false);
+                $this->db->update('poll_options');
+            }
         }
+
+        $this->db->trans_complete();
+
+        if ($this->db->trans_status() === FALSE || !$vote_deleted) {
+            $this->output(['status' => 500, 'message' => 'Failed to remove vote']);
+            return;
+        }
+
+        // Get updated poll without user vote
+        $updated_poll = $this->common->get_poll_by_id($poll_id);
+        $formatted_poll = $this->format_poll_response($updated_poll, $current_user_id, false);
+
+        $this->output([
+            'status' => 200,
+            'message' => 'Vote removed successfully',
+            'poll' => $formatted_poll
+        ]);
     }
+
+    //     // Delete vote
+    //     $result = $this->common->deleteWhere('poll_votes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
+
+    //     if ($result) {
+
+    //         // Get updated poll without user vote
+    //         $updated_poll = $this->common->get_poll_by_id($poll_id);
+    //         $formatted_poll = $this->format_poll_response($updated_poll, $current_user_id, false);
+
+    //         $this->output([
+    //             'status' => 200,
+    //             'message' => 'Vote removed successfully',
+    //             'poll' => $formatted_poll
+    //         ]);
+    //     } else {
+    //         $this->output(['status' => 500, 'message' => 'Failed to remove vote']);
+    //     }
+    // }
 
     /**
      * Delete a poll (only by creator)
