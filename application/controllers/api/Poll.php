@@ -925,117 +925,120 @@ private function format_poll_response($poll, $user_id, $show_results = false)
         $this->output($response);
     }
 
-    public function post_comment()
-    {
-	 try {
-        $current_user_id = $this->get_authenticated_user();
+   public function post_comment()
+{
+    $debug_info = []; // Initialize debug array
+    $current_user_id = $this->get_authenticated_user();
 
-        if (!$current_user_id) {
-            $this->output(['status' => 401, 'message' => 'Unauthorized']);
-            return;
-        }
+    if (!$current_user_id) {
+        $this->output(['status' => 401, 'message' => 'Unauthorized']);
+        return;
+    }
 
-        $post_data = $this->input->post(null, true);
+    $post_data = $this->input->post(null, true);
 
-        if (empty($post_data['poll_id']) || empty($post_data['comment'])) {
-            $this->output(['status' => 400, 'message' => 'Poll ID and comment are required']);
-            return;
-        }
+    if (empty($post_data['poll_id']) || empty($post_data['comment'])) {
+        $this->output(['status' => 400, 'message' => 'Poll ID and comment are required']);
+        return;
+    }
 
-        $poll_id = $post_data['poll_id'];
-        $comment = trim($post_data['comment']);
+    $poll_id = $post_data['poll_id'];
+    $comment = trim($post_data['comment']);
 
-        // Check if poll exists
-        $poll = $this->common->getdatabytable('polls', array('id' => $poll_id, 'status' => 'active'));
-        if (!$poll) {
-            $this->output(['status' => 404, 'message' => 'Poll not found']);
-            return;
-        }
+    // Check if poll exists
+    $poll = $this->common->getdatabytable('polls', array('id' => $poll_id, 'status' => 'active'));
+    if (!$poll) {
+        $this->output(['status' => 404, 'message' => 'Poll not found']);
+        return;
+    }
 
-        // Check poll is not expired
-        if (strtotime($poll->expires_at) <= time()) {
-            $this->output(['status' => 400, 'message' => 'Cannot comment on expired poll']);
-            return;
-        }
+    // Check poll is not expired
+    if (strtotime($poll->expires_at) <= time()) {
+        $this->output(['status' => 400, 'message' => 'Cannot comment on expired poll']);
+        return;
+    }
 
-         // Start database transaction for data consistency
-        $this->db->trans_start();
+    // Start database transaction for data consistency
+    $this->db->trans_start();
 
-        // Insert comment
-        $comment_data = array(
-            'poll_id' => $poll_id,
-            'user_id' => $current_user_id,
-            'comment' => $comment,
-            'created_at' => date('Y-m-d H:i:s')
-        );
+    // Insert comment
+    $comment_data = array(
+        'poll_id' => $poll_id,
+        'user_id' => $current_user_id,
+        'comment' => $comment,
+        'created_at' => date('Y-m-d H:i:s')
+    );
 
-        $result = $this->common->insert($comment_data, 'poll_comments');
+    $result = $this->common->insert($comment_data, 'poll_comments');
+    
+    if (!$result) {
+        throw new Exception('Failed to insert comment into database');
+    }
+
+    // Update comments count in polls table
+    $this->db->where('id', $poll_id);
+    $this->db->set('comments_count', 'comments_count + 1', false);
+    $update_result = $this->db->update('polls');
+    
+    if (!$update_result) {
+        throw new Exception('Failed to update comments count in polls table');
+    }
+
+    // NOTIFICATION DEBUGGING - Append to response
+    $debug_info['notification'] = [
+        'poll_id' => $poll_id,
+        'commenter_id' => $current_user_id,
+        'poll_owner_id' => $poll->user_id,
+        'comment_id' => $result,
+        'notification_model_loaded' => false,
+        'method_exists' => false,
+        'notification_result' => false,
+        'db_error' => null
+    ];
+
+    // Create notification for poll owner
+    if (class_exists('Notification_model')) {
+        $debug_info['notification']['notification_model_loaded'] = true;
         
-        if (!$result) {
-            throw new Exception('Failed to insert comment into database');
-        }
-
-        // Update comments count in polls table
-        $this->db->where('id', $poll_id);
-        $this->db->set('comments_count', 'comments_count + 1', false);
-        $update_result = $this->db->update('polls');
-        
-        if (!$update_result) {
-            throw new Exception('Failed to update comments count in polls table');
-        }
-
-        // Create notification for poll owner
-        if (class_exists('Notification_model')) {
+        try {
             $this->load->model('Notification_model', 'notification');
-            $notification_result = $this->notification->create_comment_notification($poll_id, $current_user_id, $poll->user_id, $result);
             
-            if (!$notification_result) {
-                // Log notification failure but don't fail the entire operation
-                log_message('error', 'Failed to create notification for comment ID: ' . $result);
+            if (method_exists($this->notification, 'create_comment_notification')) {
+                $debug_info['notification']['method_exists'] = true;
+                
+                $notification_result = $this->notification->create_comment_notification($poll_id, $current_user_id, $poll->user_id, $result);
+                $debug_info['notification']['notification_result'] = $notification_result;
+                
+                if (!$notification_result) {
+                    // Get database error
+                    $db_error = $this->db->error();
+                    $debug_info['notification']['db_error'] = $db_error;
+                }
             }
-        }
-
-            $this->db->trans_complete();
-
-            if ($this->db->trans_status() === FALSE) {
-                throw new Exception('Database transaction failed');
-            }
-
-            $this->output([
-                'status' => 200,
-                'message' => 'Comment posted successfully',
-                'data' => array(
-                    'comment_id' => $result,
-                    'comment' => $comment,
-                    'user_id' => $current_user_id,
-                    'created_at' => date('Y-m-d H:i:s'),
-                    'poll_id' => $poll_id
-                )
-            ]);
-
         } catch (Exception $e) {
-            // Rollback transaction if active
-            if ($this->db->trans_status() !== FALSE) {
-                $this->db->trans_rollback();
-            }
-
-            // Log the actual error for debugging
-            log_message('error', 'Post comment failed: ' . $e->getMessage());
-            log_message('error', 'File: ' . $e->getFile() . ' Line: ' . $e->getLine());
-
-            $this->output([
-                'status' => 500, 
-                'message' => 'Failed to post comment',
-                'error_details' => $e->getMessage(),
-                'error_type' => get_class($e),
-                'debug_info' => array(
-                    'user_id' => $current_user_id ?? 'unknown',
-                    'poll_id' => $poll_id ?? 'unknown',
-                    'timestamp' => date('Y-m-d H:i:s')
-                )
-            ]);
+            $debug_info['notification']['exception'] = $e->getMessage();
         }
     }
+
+    $this->db->trans_complete();
+
+    if ($this->db->trans_status() === FALSE) {
+        throw new Exception('Database transaction failed');
+    }
+
+    $this->output([
+        'status' => 200,
+        'message' => 'Comment posted successfully',
+        'data' => array(
+            'comment_id' => $result,
+            'comment' => $comment,
+            'user_id' => $current_user_id,
+            'created_at' => date('Y-m-d H:i:s'),
+            'poll_id' => $poll_id
+        ),
+        'debug_info' => $debug_info // Append debug info to response
+    ]);
+}
     
 
     public function comments()
@@ -1097,206 +1100,179 @@ private function format_poll_response($poll, $user_id, $show_results = false)
      * POST /poll/toggle_like
      */
     public function toggle_like()
-    {
-        try {
-            $current_user_id = $this->get_authenticated_user();
+{
+    $debug_info = []; // Initialize debug array
+    
+    try {
+        $current_user_id = $this->get_authenticated_user();
 
-            if (!$current_user_id) {
-                $this->output([
-                    'status' => 401, 
-                    'message' => 'Unauthorized',
-                    'error_details' => 'User authentication failed - invalid or expired session',
-                    'debug_info' => [
-                        'timestamp' => date('Y-m-d H:i:s'),
-                        'auth_method' => 'get_authenticated_user'
-                    ]
-                ]);
-                return;
+        if (!$current_user_id) {
+            $this->output(['status' => 401, 'message' => 'Unauthorized']);
+            return;
+        }
+
+        $post_data = $this->input->post(null, true);
+
+        if (empty($post_data['poll_id'])) {
+            $this->output(['status' => 400, 'message' => 'Poll ID is required']);
+            return;
+        }
+
+        $poll_id = $post_data['poll_id'];
+
+        // Validate poll_id is numeric
+        if (!is_numeric($poll_id)) {
+            $this->output(['status' => 400, 'message' => 'Invalid Poll ID']);
+            return;
+        }
+
+        // Check if poll exists and is active
+        $poll = $this->common->getdatabytable('polls', array('id' => $poll_id, 'status' => 'active'));
+
+        if (!$poll) {
+            $this->output(['status' => 404, 'message' => 'Poll not found']);
+            return;
+        }
+
+        // Start database transaction
+        $this->db->trans_start();
+
+        // Check if user has already liked this poll
+        $existing_like = $this->common->getdatabytable('poll_likes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
+
+        // NOTIFICATION DEBUGGING
+        $debug_info['notification'] = [
+            'poll_id' => $poll_id,
+            'liker_id' => $current_user_id,
+            'poll_owner_id' => $poll->user_id,
+            'is_own_poll' => ($poll->user_id == $current_user_id),
+            'notification_model_loaded' => false,
+            'method_exists' => false,
+            'notification_result' => false,
+            'db_error' => null
+        ];
+
+        if ($existing_like) {
+            // Unlike - remove the like
+            $result = $this->common->deleteWhere('poll_likes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
+
+            if (!$result) {
+                throw new Exception('Failed to delete like record from poll_likes table');
             }
 
-            $post_data = $this->input->post(null, true);
-
-            if (empty($post_data['poll_id'])) {
-                $this->output([
-                    'status' => 400, 
-                    'message' => 'Poll ID is required',
-                    'error_details' => 'Missing required parameter: poll_id',
-                    'debug_info' => [
-                        'received_data' => $post_data,
-                        'user_id' => $current_user_id,
-                        'missing_field' => 'poll_id'
-                    ]
-                ]);
-                return;
+            // Decrease likes count in polls table
+            $decrease_result = $this->common->increasePollLikesCount($poll_id, -1);
+            if (!$decrease_result) {
+                throw new Exception('Failed to decrease likes count in polls table');
             }
 
-            $poll_id = $post_data['poll_id'];
+            $this->db->trans_complete();
 
-            // Validate poll_id is numeric
-            if (!is_numeric($poll_id)) {
-                $this->output([
-                    'status' => 400, 
-                    'message' => 'Invalid Poll ID',
-                    'error_details' => 'Poll ID must be a numeric value',
-                    'debug_info' => [
-                        'poll_id_received' => $poll_id,
-                        'poll_id_type' => gettype($poll_id)
-                    ]
-                ]);
-                return;
+            if ($this->db->trans_status() === FALSE) {
+                throw new Exception('Transaction failed during unlike operation');
             }
 
-            // Check if poll exists and is active
-            $poll = $this->common->getdatabytable('polls', array('id' => $poll_id, 'status' => 'active'));
-
-            if (!$poll) {
-                $this->output([
-                    'status' => 404, 
-                    'message' => 'Poll not found',
-                    'error_details' => 'Poll not found or not active with ID: ' . $poll_id,
-                    'debug_info' => [
-                        'poll_id' => $poll_id,
-                        'search_criteria' => ['id' => $poll_id, 'status' => 'active'],
-                        'user_id' => $current_user_id
-                    ]
-                ]);
-                return;
+            // Get updated likes count
+            $updated_poll = $this->common->getdatabytable('polls', array('id' => $poll_id));
+            if (!$updated_poll) {
+                throw new Exception('Failed to fetch updated poll data after unlike');
             }
 
-            // Start database transaction
-            $this->db->trans_start();
+            $response = [
+                'status' => 200,
+                'message' => 'Poll unliked successfully',
+                'data' => array(
+                    'is_liked' => false,
+                    'likes_count' => (int)$updated_poll->likes_count,
+                    'action' => 'unliked'
+                )
+            ];
 
-            // Check if user has already liked this poll
-            $existing_like = $this->common->getdatabytable('poll_likes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
+        } else {
+            // Like - add the like
+            $like_data = array(
+                'poll_id' => $poll_id,
+                'user_id' => $current_user_id,
+                'created_at' => date('Y-m-d H:i:s')
+            );
 
-            if ($existing_like) {
-                // Unlike - remove the like
-                $result = $this->common->deleteWhere('poll_likes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
+            $result = $this->common->insert($like_data, 'poll_likes');
 
-                if (!$result) {
-                    throw new Exception('Failed to delete like record from poll_likes table');
-                }
+            if (!$result) {
+                throw new Exception('Failed to insert like record into poll_likes table');
+            }
 
-                // Decrease likes count in polls table
-                $decrease_result = $this->common->increasePollLikesCount($poll_id, -1);
-                if (!$decrease_result) {
-                    throw new Exception('Failed to decrease likes count in polls table');
-                }
+            // Increase likes count in polls table
+            $increase_result = $this->common->increasePollLikesCount($poll_id);
+            if (!$increase_result) {
+                throw new Exception('Failed to increase likes count in polls table');
+            }
 
-                $this->db->trans_complete();
-
-                if ($this->db->trans_status() === FALSE) {
-                    throw new Exception('Transaction failed during unlike operation');
-                }
-
-                // Get updated likes count
-                $updated_poll = $this->common->getdatabytable('polls', array('id' => $poll_id));
-                if (!$updated_poll) {
-                    throw new Exception('Failed to fetch updated poll data after unlike');
-                }
-
-                $this->output([
-                    'status' => 200,
-                    'message' => 'Poll unliked successfully',
-                    'data' => array(
-                        'is_liked' => false,
-                        'likes_count' => (int)$updated_poll->likes_count,
-                        'action' => 'unliked',
-                        'debug_info' => [
-                            'poll_id' => $poll_id,
-                            'user_id' => $current_user_id,
-                            'previous_like_id' => $existing_like->id ?? 'unknown',
-                            'updated_likes_count' => (int)$updated_poll->likes_count
-                        ]
-                    )
-                ]);
-
-            } else {
-                // Like - add the like
-                $like_data = array(
-                    'poll_id' => $poll_id,
-                    'user_id' => $current_user_id,
-                    'created_at' => date('Y-m-d H:i:s')
-                );
-
-                $result = $this->common->insert($like_data, 'poll_likes');
-
-                if (!$result) {
-                    throw new Exception('Failed to insert like record into poll_likes table');
-                }
-
-                // Increase likes count in polls table
-                $increase_result = $this->common->increasePollLikesCount($poll_id);
-                if (!$increase_result) {
-                    throw new Exception('Failed to increase likes count in polls table');
-                }
-                // Create notification for poll owner (if not liking own poll)
-                if ($poll->user_id != $current_user_id) {
-                    if (class_exists('Notification_model')) {
+            // Create notification for poll owner (if not liking own poll)
+            if ($poll->user_id != $current_user_id) {
+                if (class_exists('Notification_model')) {
+                    $debug_info['notification']['notification_model_loaded'] = true;
+                    
+                    try {
                         $this->load->model('Notification_model', 'notification');
-                        $notification_result = $this->notification->create_like_notification($poll_id, $current_user_id, $poll->user_id);
                         
-                        if (!$notification_result) {
-                            // Log but don't fail the operation
+                        if (method_exists($this->notification, 'create_like_notification')) {
+                            $debug_info['notification']['method_exists'] = true;
+                            
+                            $notification_result = $this->notification->create_like_notification($poll_id, $current_user_id, $poll->user_id);
+                            $debug_info['notification']['notification_result'] = $notification_result;
+                            
+                            if (!$notification_result) {
+                                // Get database error
+                                $db_error = $this->db->error();
+                                $debug_info['notification']['db_error'] = $db_error;
+                            }
                         }
+                    } catch (Exception $e) {
+                        $debug_info['notification']['exception'] = $e->getMessage();
                     }
                 }
-
-                $this->db->trans_complete();
-
-                if ($this->db->trans_status() === FALSE) {
-                    throw new Exception('Transaction failed during like operation');
-                }
-
-                // Get updated likes count
-                $updated_poll = $this->common->getdatabytable('polls', array('id' => $poll_id));
-                if (!$updated_poll) {
-                    throw new Exception('Failed to fetch updated poll data after like');
-                }
-
-                $this->output([
-                    'status' => 200,
-                    'message' => 'Poll liked successfully',
-                    'data' => array(
-                        'is_liked' => true,
-                        'likes_count' => (int)$updated_poll->likes_count,
-                        'action' => 'liked',
-                        'debug_info' => [
-                            'poll_id' => $poll_id,
-                            'user_id' => $current_user_id,
-                            'like_id' => $result,
-                            'poll_owner_id' => $poll->user_id,
-                            'notification_created' => ($poll->user_id != $current_user_id) ? 'yes' : 'no',
-                            'updated_likes_count' => (int)$updated_poll->likes_count
-                        ]
-                    )
-                ]);
             }
 
-        } catch (Exception $e) {
-            // Rollback transaction if active
-            if ($this->db->trans_status() !== FALSE) {
-                $this->db->trans_rollback();
+            $this->db->trans_complete();
+
+            if ($this->db->trans_status() === FALSE) {
+                throw new Exception('Transaction failed during like operation');
             }
 
-            // Log the actual error for debugging
-            log_message('error', 'Toggle like failed: ' . $e->getMessage());
-            log_message('error', 'File: ' . $e->getFile() . ' Line: ' . $e->getLine());
-            log_message('error', 'Poll ID: ' . ($poll_id ?? 'unknown') . ', User ID: ' . $current_user_id);
+            // Get updated likes count
+            $updated_poll = $this->common->getdatabytable('polls', array('id' => $poll_id));
+            if (!$updated_poll) {
+                throw new Exception('Failed to fetch updated poll data after like');
+            }
 
-            $this->output([
-                'status' => 500, 
-                'message' => 'Failed to process like action',
-                'error_details' => $e->getMessage(),
-                'error_type' => get_class($e),
-                'debug_info' => array(
-                    'user_id' => $current_user_id ?? 'unknown',
-                    'poll_id' => $poll_id ?? 'unknown',
-                    'action_attempted' => isset($existing_like) ? 'unlike' : 'like',
-                    'timestamp' => date('Y-m-d H:i:s'),
-                    'stack_trace' => $e->getTraceAsString()
+            $response = [
+                'status' => 200,
+                'message' => 'Poll liked successfully',
+                'data' => array(
+                    'is_liked' => true,
+                    'likes_count' => (int)$updated_poll->likes_count,
+                    'action' => 'liked'
                 )
-            ]);
+            ];
         }
+
+        // Append debug info to response
+        $response['debug_info'] = $debug_info;
+        $this->output($response);
+
+    } catch (Exception $e) {
+        // Rollback transaction if active
+        if ($this->db->trans_status() !== FALSE) {
+            $this->db->trans_rollback();
+        }
+
+        $this->output([
+            'status' => 500, 
+            'message' => 'Failed to process like action',
+            'error_details' => $e->getMessage(),
+            'debug_info' => $debug_info // Include debug info even in error
+        ]);
+    }
 }
 }
