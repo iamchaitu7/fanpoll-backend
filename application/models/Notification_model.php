@@ -9,151 +9,151 @@ class Notification_model extends CI_Model
     }
 
     /**
-     * Create vote notification
-     */
-    public function create_vote_notification($poll_id, $voter_id, $poll_owner_id)
-    {
-        // Don't create notification if user is voting on their own poll
-        if ($voter_id == $poll_owner_id) {
-            return true;
-        }
-
-        // Get voter details for the notification message
-        $voter = $this->get_user_by_id($voter_id);
-        $poll = $this->get_poll_by_id($poll_id);
-
-        if (!$voter || !$poll) {
-            return false;
-        }
-
-        $voter_name = $voter['full_name'] ?: 'Someone';
-        $poll_title = $poll['title'] ?: 'your poll';
-
-        $notification_data = [
-            'uuid' => bin2hex(random_bytes(16)),
-            'user_id' => $poll_owner_id,
-            'sender_id' => $voter_id,
-            'type' => 'vote',
-            'title' => 'New Vote',
-            'message' => $voter_name . ' voted on your poll: "' . $poll_title . '"',
-            'reference_id' => $poll_id,
-            'reference_type' => 'poll',
-            'data' => json_encode([
-                'poll_id' => $poll_id,
-                'voter_id' => $voter_id,
-                'voter_name' => $voter['full_name'],
-                'poll_title' => $poll['title']
-            ]),
-            'created_at' => date('Y-m-d H:i:s')
-        ];
-
-        $result = $this->db->insert('notifications', $notification_data);
-        
-        if ($result) {
-            // Send push notification if user has FCM token
-            $this->send_push_notification($poll_owner_id, $notification_data);
-        }
-        
-        return $result;
+ * Create vote notification
+ */
+public function create_vote_notification($poll_id, $voter_id, $poll_owner_id)
+{
+    // Don't create notification if user is voting on their own poll
+    if ($voter_id == $poll_owner_id) {
+        return true;
     }
 
-    /**
-     * Create comment notification
-     */
-    public function create_comment_notification($poll_id, $commenter_id, $poll_owner_id, $comment_id)
-    {
-        // Don't create notification if user is commenting on their own poll
-        if ($commenter_id == $poll_owner_id) {
-            return true;
-        }
+    // Get voter details for the notification message
+    $voter = $this->get_user_by_id($voter_id);
+    $poll = $this->get_poll_by_id($poll_id);
 
-        // Get commenter details for the notification message
-        $commenter = $this->get_user_by_id($commenter_id);
-        $poll = $this->get_poll_by_id($poll_id);
-
-        if (!$commenter || !$poll) {
-            return false;
-        }
-
-        $commenter_name = $commenter['full_name'] ?: 'Someone';
-        $poll_title = $poll['title'] ?: 'your poll';
-
-        $notification_data = [
-            'uuid' => bin2hex(random_bytes(16)),
-            'user_id' => $poll_owner_id,
-            'sender_id' => $commenter_id,
-            'type' => 'comment',
-            'title' => 'New Comment',
-            'message' => $commenter_name . ' commented on your poll: "' . $poll_title . '"',
-            'reference_id' => $poll_id,
-            'reference_type' => 'poll',
-            'data' => json_encode([
-                'poll_id' => $poll_id,
-                'comment_id' => $comment_id,
-                'commenter_id' => $commenter_id,
-                'commenter_name' => $commenter['full_name'],
-                'poll_title' => $poll['title']
-            ]),
-            'created_at' => date('Y-m-d H:i:s')
-        ];
-
-        $result = $this->db->insert('notifications', $notification_data);
-        
-        if ($result) {
-            // Send push notification if user has FCM token
-            $this->send_push_notification($poll_owner_id, $notification_data);
-        }
-        
-        return $result;
+    if (!$voter || !$poll) {
+        return false;
     }
 
-    /**
-     * Create like notification
-     */
-    public function create_like_notification($poll_id, $liker_id, $poll_owner_id)
-    {
-        // Don't create notification if user is liking their own poll
-        if ($liker_id == $poll_owner_id) {
-            return true;
-        }
+    $voter_name = $voter['full_name'] ?: 'Someone';
+    $poll_title = $poll['title'] ?: 'your poll';
 
-        // Get liker details for the notification message
-        $liker = $this->get_user_by_id($liker_id);
-        $poll = $this->get_poll_by_id($poll_id);
+    $notification_data = [
+        'uuid' => bin2hex(random_bytes(16)),
+        'user_id' => $poll_owner_id,
+        'sender_id' => $voter_id,
+        'type' => 'poll_vote', // Use ENUM value from your table
+        'title' => 'New Vote',
+        'message' => $voter_name . ' voted on your poll: "' . $poll_title . '"',
+        'reference_id' => $poll_id,
+        'reference_type' => 'poll', // Use ENUM value from your table
+        'data' => json_encode([
+            'poll_id' => $poll_id,
+            'voter_id' => $voter_id,
+            'voter_name' => $voter['full_name'],
+            'poll_title' => $poll['title']
+        ]),
+        'created_at' => date('Y-m-d H:i:s')
+    ];
 
-        if (!$liker || !$poll) {
-            return false;
-        }
+    $result = $this->db->insert('notifications', $notification_data);
+    
+    if ($result) {
+        // Send push notification if user has FCM token
+        $this->send_push_notification($poll_owner_id, $notification_data);
+    }
+    
+    return $result;
+}
 
-        $liker_name = $liker['full_name'] ?: 'Someone';
-        $poll_title = $poll['title'] ?: 'your poll';
+/**
+ * Create comment notification
+ */
+public function create_comment_notification($poll_id, $commenter_id, $poll_owner_id, $comment_id)
+{
+    // Don't create notification if user is commenting on their own poll
+    if ($commenter_id == $poll_owner_id) {
+        return true;
+    }
 
-        $notification_data = [
-            'uuid' => bin2hex(random_bytes(16)),
-            'user_id' => $poll_owner_id,
-            'sender_id' => $liker_id,
-            'type' => 'like',
-            'title' => 'New Like',
-            'message' => $liker_name . ' liked your poll: "' . $poll_title . '"',
-            'reference_id' => $poll_id,
-            'reference_type' => 'poll',
-            'data' => json_encode([
-                'poll_id' => $poll_id,
-                'liker_id' => $liker_id,
-                'liker_name' => $liker['full_name'],
-                'poll_title' => $poll['title']
-            ]),
-            'created_at' => date('Y-m-d H:i:s')
-        ];
+    // Get commenter details for the notification message
+    $commenter = $this->get_user_by_id($commenter_id);
+    $poll = $this->get_poll_by_id($poll_id);
 
-        $result = $this->db->insert('notifications', $notification_data);
-        
-        if ($result) {
-            // Send push notification if user has FCM token
-            $this->send_push_notification($poll_owner_id, $notification_data);
-        }
-        
-        return $result;
+    if (!$commenter || !$poll) {
+        return false;
+    }
+
+    $commenter_name = $commenter['full_name'] ?: 'Someone';
+    $poll_title = $poll['title'] ?: 'your poll';
+
+    $notification_data = [
+        'uuid' => bin2hex(random_bytes(16)),
+        'user_id' => $poll_owner_id,
+        'sender_id' => $commenter_id,
+        'type' => 'poll_comment', // Use ENUM value from your table
+        'title' => 'New Comment',
+        'message' => $commenter_name . ' commented on your poll: "' . $poll_title . '"',
+        'reference_id' => $poll_id,
+        'reference_type' => 'poll', // Use ENUM value from your table
+        'data' => json_encode([
+            'poll_id' => $poll_id,
+            'comment_id' => $comment_id,
+            'commenter_id' => $commenter_id,
+            'commenter_name' => $commenter['full_name'],
+            'poll_title' => $poll['title']
+        ]),
+        'created_at' => date('Y-m-d H:i:s')
+    ];
+
+    $result = $this->db->insert('notifications', $notification_data);
+    
+    if ($result) {
+        // Send push notification if user has FCM token
+        $this->send_push_notification($poll_owner_id, $notification_data);
+    }
+    
+    return $result;
+}
+
+/**
+ * Create like notification
+ */
+public function create_like_notification($poll_id, $liker_id, $poll_owner_id)
+{
+    // Don't create notification if user is liking their own poll
+    if ($liker_id == $poll_owner_id) {
+        return true;
+    }
+
+    // Get liker details for the notification message
+    $liker = $this->get_user_by_id($liker_id);
+    $poll = $this->get_poll_by_id($poll_id);
+
+    if (!$liker || !$poll) {
+        return false;
+    }
+
+    $liker_name = $liker['full_name'] ?: 'Someone';
+    $poll_title = $poll['title'] ?: 'your poll';
+
+    $notification_data = [
+        'uuid' => bin2hex(random_bytes(16)),
+        'user_id' => $poll_owner_id,
+        'sender_id' => $liker_id,
+        'type' => 'poll_like', // Use ENUM value from your table
+        'title' => 'New Like',
+        'message' => $liker_name . ' liked your poll: "' . $poll_title . '"',
+        'reference_id' => $poll_id,
+        'reference_type' => 'poll', // Use ENUM value from your table
+        'data' => json_encode([
+            'poll_id' => $poll_id,
+            'liker_id' => $liker_id,
+            'liker_name' => $liker['full_name'],
+            'poll_title' => $poll['title']
+        ]),
+        'created_at' => date('Y-m-d H:i:s')
+    ];
+
+    $result = $this->db->insert('notifications', $notification_data);
+    
+    if ($result) {
+        // Send push notification if user has FCM token
+        $this->send_push_notification($poll_owner_id, $notification_data);
+    }
+    
+    return $result;
     }
 
     /**
