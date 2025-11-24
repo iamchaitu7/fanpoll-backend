@@ -152,26 +152,58 @@ class Notification extends CI_Controller
         }
     }
 
-    /**
-     * Format notification response
-     */
-    private function format_notification($notification)
-    {
-        return [
-            'id' => (int)$notification['id'],
-            'uuid' => $notification['uuid'],
-            'type' => $notification['type'],
-            'title' => $notification['title'],
-            'message' => $notification['message'],
-            'reference_id' => $notification['reference_id'] ? (int)$notification['reference_id'] : null,
-            'reference_type' => $notification['reference_type'],
-            'data' => $notification['data'] ? json_decode($notification['data'], true) : null,
-            'created_at' => $notification['created_at'],
-            'sender' => [
-                'id' => (int)$notification['sender_id'],
-                'name' => $notification['sender_name'],
-                'avatar' => base_url('uploads/profile_pictures/' . $notification['sender_avatar'])
-            ]
-        ];
+   /**
+ * Format notification response
+ */
+private function format_notification($notification)
+{
+    // Handle avatar URL - ensure it's HTTPS and provide fallback
+    $avatar_url = null;
+    if (!empty($notification['sender_avatar']) && $notification['sender_avatar'] !== 'default-profile.jpg') {
+        // Check if avatar is stored in Cloudinary or locally
+        if (strpos($notification['sender_avatar'], 'avatars/') === 0) {
+            // Cloudinary avatar - generate URL
+            $cloud_name = 'dq9zl6oob';
+            $public_id = $notification['sender_avatar'];
+            $avatar_url = "https://res.cloudinary.com/{$cloud_name}/image/upload/w_100,h_100,c_fill,q_auto,f_auto/{$public_id}";
+        } else {
+            // Local avatar - ensure HTTPS
+            $base_domain = 'https://fanpoll-backend-production.up.railway.app';
+            $avatar_path = $notification['sender_avatar'];
+            
+            // Convert HTTP to HTTPS if needed
+            if (strpos($avatar_path, 'http://') === 0) {
+                $avatar_path = str_replace('http://', 'https://', $avatar_path);
+            }
+            
+            // If it's a relative path, construct full URL
+            if (strpos($avatar_path, 'http') !== 0) {
+                $avatar_url = $base_domain . '/serve_image.php?file=' . urlencode($avatar_path);
+            } else {
+                $avatar_url = $avatar_path;
+            }
+        }
+    } else {
+        // Fallback to default avatar with HTTPS
+        $base_domain = 'https://fanpoll-backend-production.up.railway.app';
+        $avatar_url = $base_domain . '/serve_image.php?file=/uploads/profile_pictures/default.png';
     }
+
+    return [
+        'id' => (int)$notification['id'],
+        'uuid' => $notification['uuid'],
+        'type' => $notification['type'],
+        'title' => $notification['title'],
+        'message' => $notification['message'],
+        'reference_id' => $notification['reference_id'] ? (int)$notification['reference_id'] : null,
+        'reference_type' => $notification['reference_type'],
+        'data' => $notification['data'] ? json_decode($notification['data'], true) : null,
+        'created_at' => $notification['created_at'],
+        'sender' => [
+            'id' => (int)$notification['sender_id'],
+            'name' => $notification['sender_name'],
+            'avatar' => $avatar_url
+        ]
+    ];
+}
 }
