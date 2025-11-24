@@ -10,7 +10,9 @@ class Cors_hook {
             'http://localhost:8000',
             'http://localhost:53589',
             'http://localhost:63775', // Add your current port
-            'http://127.0.0.1:8000'
+            'http://127.0.0.1:8000',
+            'https://www.fanpollworld.com',
+            'https://fanpollworld.com'
         ];
         
         $http_origin = $_SERVER['HTTP_ORIGIN'] ?? '';
@@ -36,6 +38,8 @@ class Cors_hook {
         } else {
             // Use specific domain instead of * when credentials are needed
             header("Access-Control-Allow-Origin: https://fanpoll-flutter-6z77.vercel.app");
+            header("Access-Control-Allow-Origin: 'https://www.fanpollworld.com'");
+            header("Access-Control-Allow-Origin: 'https://fanpollworld.com'");
         }
         
         header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH");

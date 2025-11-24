@@ -7,7 +7,10 @@ $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 // Define allowed production domains
 $allowed_production_domains = [
     'https://fanpoll-flutter-6z77.vercel.app',
-    'https://fanpoll-flutter.vercel.app'
+    'https://fanpoll-flutter.vercel.app', 
+    'https://fanpoll-flutter-6z77-git-main-chaithus-projects-ac727576.vercel.app',
+    'https://www.fanpollworld.com',
+    'https://fanpollworld.com'
 ];
 
 // Check if it's a localhost origin or allowed production domain

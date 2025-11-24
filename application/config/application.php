@@ -20,7 +20,9 @@ $config['allowed_origins'] = [
     'http://localhost:8000',
     'http://localhost:53589',
     'http://localhost:63775', // Your current port
-    'http://127.0.0.1:8000'
+    'http://127.0.0.1:8000',
+    'https://www.fanpollworld.com',
+    'https://fanpollworld.com'
 ];
 
 // Enable dynamic localhost port allowance for development
