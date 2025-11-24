@@ -38,8 +38,8 @@ class Cors_hook {
         } else {
             // Use specific domain instead of * when credentials are needed
             header("Access-Control-Allow-Origin: https://fanpoll-flutter-6z77.vercel.app");
-            header("Access-Control-Allow-Origin: 'https://www.fanpollworld.com'");
-            header("Access-Control-Allow-Origin: 'https://fanpollworld.com'");
+            header("Access-Control-Allow-Origin: https://www.fanpollworld.com");
+            header("Access-Control-Allow-Origin: https://fanpollworld.com");
         }
         
         header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH");

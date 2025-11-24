@@ -1038,48 +1038,37 @@ private function format_poll_response($poll, $user_id, $show_results = false)
 
     public function comments()
     {
-        log_message('debug', 'Poll::com comments');
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
-            log_message('debug', 'Poll::comments - Unauthorized access attempt');
             $this->output(['status' => 401, 'message' => 'Unauthorized']);
             return;
         }
 
-        log_message('debug', 'Poll::comments - User authenticated: ' . $current_user_id);
         $poll_id = $this->input->get('poll_id');
         $page = $this->input->get('page') ? (int)$this->input->get('page') : 1;
         $limit = 10;
 
         if (empty($poll_id)) {
-            log_message('debug', 'Poll::comments - Missing poll_id');
             $this->output(['status' => 400, 'message' => 'Poll ID is required']);
             return;
         }
 
-        log_message('debug', 'Poll::comments - Comments request - Poll: ' . $poll_id . ', Page: ' . $page);
 
         // Check if poll exists
-        log_message('debug', 'Poll::comments - Checking poll existence');
         $poll = $this->common->getdatabytable('polls', array('id' => $poll_id, 'status' => 'active'));
         if (!$poll) {
-            log_message('debug', 'Poll::comments - Poll not found: ' . $poll_id);
             $this->output(['status' => 404, 'message' => 'Poll not found']);
             return;
         }
 
         // Get total comments count for pagination
-        log_message('debug', 'Poll::comments - Getting total comments count');
         $total_count = $this->common->get_poll_comments_count($poll_id);
-        log_message('debug', 'Poll::comments - Total comments: ' . $total_count);
 
         // Get comments
-        log_message('debug', 'Poll::comments - Fetching comments from database');
         $comments = $this->common->get_poll_comments($poll_id, $page, $limit);
 
         if (!empty($comments)) {
-            log_message('debug', 'Poll::comments - Retrieved ' . count($comments) . ' comments');
             $formatted_comments = [];
             foreach ($comments as $comment) {
                 $formatted_comments[] = array(
@@ -1092,11 +1081,9 @@ private function format_poll_response($poll, $user_id, $show_results = false)
                 );
             }
 
-            log_message('debug', 'Poll::comments - Formatting completed');
             $response = $this->create_pagination_response($formatted_comments, $page, $limit, $total_count);
             $this->output($response);
         } else {
-            log_message('debug', 'Poll::comments - No comments found for poll: ' . $poll_id);
             $response = $this->create_pagination_response([], $page, $limit, 0);
             $response['message'] = 'No comments found';
             $this->output($response);
