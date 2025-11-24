@@ -920,7 +920,6 @@ private function format_poll_response($poll, $user_id, $show_results = false)
             );
         }
 
-        log_message('debug', 'Poll::user_polls - Formatting completed');
         $response = $this->create_pagination_response($polls_data, $page, $limit, $total_count);
         $response['message'] = 'Polls retrieved successfully';
         $this->output($response);
@@ -928,46 +927,40 @@ private function format_poll_response($poll, $user_id, $show_results = false)
 
     public function post_comment()
     {
-        log_message('debug', 'Poll::post_comment - Posting comment');
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
-            log_message('debug', 'Poll::post_comment - Unauthorized access attempt');
             $this->output(['status' => 401, 'message' => 'Unauthorized']);
             return;
         }
 
-        log_message('debug', 'Poll::post_comment - User authenticated: ' . $current_user_id);
         $post_data = $this->input->post(null, true);
 
         if (empty($post_data['poll_id']) || empty($post_data['comment'])) {
-            log_message('debug', 'Poll::post_comment - Missing poll_id or comment');
             $this->output(['status' => 400, 'message' => 'Poll ID and comment are required']);
             return;
         }
 
         $poll_id = $post_data['poll_id'];
         $comment = trim($post_data['comment']);
-        log_message('debug', 'Poll::post_comment - Comment request - Poll: ' . $poll_id . ', Comment: ' . substr($comment, 0, 50) . '...');
 
         // Check if poll exists
-        log_message('debug', 'Poll::post_comment - Checking poll existence');
         $poll = $this->common->getdatabytable('polls', array('id' => $poll_id, 'status' => 'active'));
         if (!$poll) {
-            log_message('debug', 'Poll::post_comment - Poll not found: ' . $poll_id);
             $this->output(['status' => 404, 'message' => 'Poll not found']);
             return;
         }
 
         // Check poll is not expired
         if (strtotime($poll->expires_at) <= time()) {
-            log_message('debug', 'Poll::post_comment - Poll expired: ' . $poll_id);
             $this->output(['status' => 400, 'message' => 'Cannot comment on expired poll']);
             return;
         }
 
+         // Start database transaction for data consistency
+        $this->db->trans_start();
+
         // Insert comment
-        log_message('debug', 'Poll::post_comment - Inserting comment into database');
         $comment_data = array(
             'poll_id' => $poll_id,
             'user_id' => $current_user_id,
@@ -976,15 +969,37 @@ private function format_poll_response($poll, $user_id, $show_results = false)
         );
 
         $result = $this->common->insert($comment_data, 'poll_comments');
-        if ($result) {
-            log_message('debug', 'Poll::post_comment - Comment posted successfully with ID: ' . $result);
+        
+        if (!$result) {
+            throw new Exception('Failed to insert comment into database');
+        }
 
-            // Create notification for poll owner
-            log_message('debug', 'Poll::post_comment - Creating comment notification');
+        // Update comments count in polls table
+        $this->db->where('id', $poll_id);
+        $this->db->set('comments_count', 'comments_count + 1', false);
+        $update_result = $this->db->update('polls');
+        
+        if (!$update_result) {
+            throw new Exception('Failed to update comments count in polls table');
+        }
+
+        // Create notification for poll owner
+        if (class_exists('Notification_model')) {
             $this->load->model('Notification_model', 'notification');
-            $this->notification->create_comment_notification($poll_id, $current_user_id, $poll->user_id, $result);
+            $notification_result = $this->notification->create_comment_notification($poll_id, $current_user_id, $poll->user_id, $result);
+            
+            if (!$notification_result) {
+                // Log notification failure but don't fail the entire operation
+                log_message('error', 'Failed to create notification for comment ID: ' . $result);
+            }
+        }
 
-            log_message('debug', 'Poll::post_comment - Comment process completed successfully');
+            $this->db->trans_complete();
+
+            if ($this->db->trans_status() === FALSE) {
+                throw new Exception('Database transaction failed');
+            }
+
             $this->output([
                 'status' => 200,
                 'message' => 'Comment posted successfully',
@@ -992,18 +1007,38 @@ private function format_poll_response($poll, $user_id, $show_results = false)
                     'comment_id' => $result,
                     'comment' => $comment,
                     'user_id' => $current_user_id,
-                    'created_at' => date('Y-m-d H:i:s')
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'poll_id' => $poll_id
                 )
             ]);
-        } else {
-            log_message('error', 'Poll::post_comment - Failed to post comment');
-            $this->output(['status' => 500, 'message' => 'Failed to post comment']);
+
+        } catch (Exception $e) {
+            // Rollback transaction if active
+            if ($this->db->trans_status() !== FALSE) {
+                $this->db->trans_rollback();
+            }
+
+            // Log the actual error for debugging
+            log_message('error', 'Post comment failed: ' . $e->getMessage());
+            log_message('error', 'File: ' . $e->getFile() . ' Line: ' . $e->getLine());
+
+            $this->output([
+                'status' => 500, 
+                'message' => 'Failed to post comment',
+                'error_details' => $e->getMessage(),
+                'error_type' => get_class($e),
+                'debug_info' => array(
+                    'user_id' => $current_user_id ?? 'unknown',
+                    'poll_id' => $poll_id ?? 'unknown',
+                    'timestamp' => date('Y-m-d H:i:s')
+                )
+            ]);
         }
     }
 
     public function comments()
     {
-        log_message('debug', 'Poll::comments - Getting poll comments');
+        log_message('debug', 'Poll::com comments');
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
