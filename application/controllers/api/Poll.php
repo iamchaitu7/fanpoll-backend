@@ -927,6 +927,7 @@ private function format_poll_response($poll, $user_id, $show_results = false)
 
     public function post_comment()
     {
+	 try {
         $current_user_id = $this->get_authenticated_user();
 
         if (!$current_user_id) {
@@ -1035,6 +1036,7 @@ private function format_poll_response($poll, $user_id, $show_results = false)
             ]);
         }
     }
+    
 
     public function comments()
     {
