@@ -905,7 +905,7 @@ private function format_poll_response($poll, $user_id, $show_results = false)
 
    public function post_comment()
 {
-    $debug_info = []; // Initialize debug array
+    $debug_info = []; // Initialize debug array at the start
     $current_user_id = $this->get_authenticated_user();
 
     if (!$current_user_id) {
@@ -962,41 +962,48 @@ private function format_poll_response($poll, $user_id, $show_results = false)
         throw new Exception('Failed to update comments count in polls table');
     }
 
-    // NOTIFICATION DEBUGGING - Append to response
+    // NOTIFICATION DEBUGGING - Initialize notification debug array
     $debug_info['notification'] = [
         'poll_id' => $poll_id,
         'commenter_id' => $current_user_id,
         'poll_owner_id' => $poll->user_id,
         'comment_id' => $result,
         'notification_model_loaded' => false,
-        'class_exists' => class_exists('Notification_model'),
+        'class_exists' => false,
         'method_exists' => false,
         'notification_result' => false,
-        'db_error' => null
+        'db_error' => null,
+        'exception' => null
     ];
 
-    // Create notification for poll owner
-    if (class_exists('Notification_model')) {
-        $debug_info['notification']['notification_model_loaded'] = true;
+    try {
+        $debug_info['notification']['class_exists'] = class_exists('Notification_model');
         
-        try {
-            $this->load->model('Notification_model', 'notification');
+        // Create notification for poll owner
+        if (class_exists('Notification_model')) {
+            $debug_info['notification']['notification_model_loaded'] = true;
             
-            if (method_exists($this->notification, 'create_comment_notification')) {
-                $debug_info['notification']['method_exists'] = true;
+            try {
+                $this->load->model('Notification_model', 'notification');
                 
-                $notification_result = $this->notification->create_comment_notification($poll_id, $current_user_id, $poll->user_id, $result);
-                $debug_info['notification']['notification_result'] = $notification_result;
-                
-                if (!$notification_result) {
-                    // Get database error
-                    $db_error = $this->db->error();
-                    $debug_info['notification']['db_error'] = $db_error;
+                if (method_exists($this->notification, 'create_comment_notification')) {
+                    $debug_info['notification']['method_exists'] = true;
+                    
+                    $notification_result = $this->notification->create_comment_notification($poll_id, $current_user_id, $poll->user_id, $result);
+                    $debug_info['notification']['notification_result'] = $notification_result;
+                    
+                    if (!$notification_result) {
+                        // Get database error
+                        $db_error = $this->db->error();
+                        $debug_info['notification']['db_error'] = $db_error;
+                    }
                 }
+            } catch (Exception $e) {
+                $debug_info['notification']['exception'] = $e->getMessage();
             }
-        } catch (Exception $e) {
-            $debug_info['notification']['exception'] = $e->getMessage();
         }
+    } catch (Exception $e) {
+        $debug_info['notification']['exception'] = $e->getMessage();
     }
 
     $this->db->trans_complete();
