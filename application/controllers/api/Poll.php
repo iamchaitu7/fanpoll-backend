@@ -15,9 +15,15 @@ class Poll extends CI_Controller
 
     $allowed_origins = config_item('allowed_origins');
     
+    if (empty($allowed_origins)) {
+        $allowed_origins = [];
+    }
+    
     // Add local development origins
     $allowed_origins[] = 'http://localhost:8000';
     $allowed_origins[] = 'https://localhost:8000';
+    $allowed_origins[] = 'http://localhost:3000';
+    $allowed_origins[] = 'https://localhost:3000';
 
     $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
     
@@ -459,11 +465,7 @@ private function upload_to_cloudinary($file_path, $file_extension)
     public function id($poll_id)
     {
         $current_user_id = $this->get_authenticated_user();
-
-        if (!$current_user_id) {
-            $this->output(['status' => 401, 'message' => 'Unauthorized']);
-            return;
-        }
+        $is_logged_in = !empty($current_user_id);
 
         if (!$poll_id) {
             $this->output(['status' => 400, 'message' => 'Poll ID is required']);
@@ -481,14 +483,20 @@ private function upload_to_cloudinary($file_path, $file_extension)
 
         $poll_data = $this->format_poll_response($poll, $current_user_id, $is_expired);
 
-        $user_vote = $this->common->getdatabytable('poll_votes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
-        $user_like = $this->common->getdatabytable('poll_likes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
+        $user_vote = null;
+        $user_like = null;
+        
+        if ($is_logged_in) {
+            $user_vote = $this->common->getdatabytable('poll_votes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
+            $user_like = $this->common->getdatabytable('poll_likes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
+        }
 
         $poll_votes_count = $this->common->getnumrows('poll_votes', array('poll_id' => $poll_id));
         $poll_participants = $this->db->query("SELECT COUNT(DISTINCT user_id) as count FROM poll_votes WHERE poll_id = ?", array($poll_id))->row();
 
         $this->output([
             'status' => 200,
+            'is_logged_in' => $is_logged_in,
             'data' => [
                 'poll' => $poll_data,
                 'user_engagement' => [
