@@ -453,6 +453,63 @@ private function upload_to_cloudinary($file_path, $file_extension)
     }
 
     /**
+     * Get poll with comprehensive data for Flutter
+     * GET /poll/id/123
+     */
+    public function id($poll_id)
+    {
+        $current_user_id = $this->get_authenticated_user();
+
+        if (!$current_user_id) {
+            $this->output(['status' => 401, 'message' => 'Unauthorized']);
+            return;
+        }
+
+        if (!$poll_id) {
+            $this->output(['status' => 400, 'message' => 'Poll ID is required']);
+            return;
+        }
+
+        $poll = $this->common->get_poll_by_id($poll_id);
+
+        if (!$poll) {
+            $this->output(['status' => 404, 'message' => 'Poll not found']);
+            return;
+        }
+
+        $is_expired = strtotime($poll['expires_at']) <= time();
+
+        $poll_data = $this->format_poll_response($poll, $current_user_id, $is_expired);
+
+        $user_vote = $this->common->getdatabytable('poll_votes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
+        $user_like = $this->common->getdatabytable('poll_likes', array('poll_id' => $poll_id, 'user_id' => $current_user_id));
+
+        $poll_votes_count = $this->common->getnumrows('poll_votes', array('poll_id' => $poll_id));
+        $poll_participants = $this->db->query("SELECT COUNT(DISTINCT user_id) as count FROM poll_votes WHERE poll_id = ?", array($poll_id))->row();
+
+        $this->output([
+            'status' => 200,
+            'data' => [
+                'poll' => $poll_data,
+                'user_engagement' => [
+                    'is_registered' => !empty($user_vote),
+                    'has_voted' => !empty($user_vote),
+                    'is_liked' => !empty($user_like),
+                    'voted_option_id' => $user_vote ? $user_vote->option_id : null
+                ],
+                'poll_stats' => [
+                    'total_participants' => (int)$poll_participants->count,
+                    'total_votes' => (int)$poll_votes_count,
+                    'total_likes' => (int)$poll['likes_count'],
+                    'total_comments' => (int)$poll['comments_count'],
+                    'is_expired' => $is_expired,
+                    'time_remaining' => $is_expired ? 0 : strtotime($poll['expires_at']) - time()
+                ]
+            ]
+        ]);
+    }
+
+    /**
      * Vote on a poll
      * POST /poll/vote
      */
