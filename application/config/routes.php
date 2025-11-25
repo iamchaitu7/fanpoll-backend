@@ -53,4 +53,5 @@ $route['default_controller'] = 'home';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
 
+$route['api/poll/(:num)'] = 'api/poll/id/$1';
 $route['zbt_admin'] = 'zbt_admin/home';
